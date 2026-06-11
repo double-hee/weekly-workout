@@ -547,6 +547,29 @@ const DEFAULT_OPTS = {
   bike:  ['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'],
 };
 
+/* ══ 사진 압축 ══ */
+function compressImage(dataUrl){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=1920; // 모바일 고화질 기준
+      let w=img.width, h=img.height;
+      if(w>MAX||h>MAX){
+        if(w>h){h=Math.round(h*MAX/w);w=MAX;}
+        else{w=Math.round(w*MAX/h);h=MAX;}
+      }
+      try{
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        res(canvas.toDataURL('image/jpeg',0.85));
+      }catch(e){rej(e);}
+    };
+    img.onerror=rej;
+    img.src=dataUrl;
+  });
+}
+
 /* ══ INDEXEDDB (사진 저장) ══ */
 const IDB_NAME='workout_photos_db', IDB_STORE='photos', IDB_VER=1;
 let _idb=null;
@@ -1408,29 +1431,21 @@ function bindPaneEvents(){
       let loaded=0;
       toLoad.forEach(file=>{
         const reader=new FileReader();
-        reader.onload=ev=>{
-          // Canvas로 압축 (최대 1200px, JPEG quality 0.75)
-          const img=new Image();
-          img.onload=()=>{
-            const MAX=1200;
-            let w=img.width, h=img.height;
-            if(w>MAX||h>MAX){
-              if(w>h){h=Math.round(h*MAX/w);w=MAX;}
-              else{w=Math.round(w*MAX/h);h=MAX;}
-            }
-            const canvas=document.createElement('canvas');
-            canvas.width=w; canvas.height=h;
-            canvas.getContext('2d').drawImage(img,0,0,w,h);
-            const compressed=canvas.toDataURL('image/jpeg',0.75);
-            photos.push(compressed);
-            loaded++;
-            if(loaded===toLoad.length){
-              savePhotos(dk,type,photos);
-              refreshPane(type);
-              if(skipped>0) showToast(`${toLoad.length}장 추가됐어요. (${skipped}장 초과로 제외)`);
-            }
-          };
-          img.src=ev.target.result;
+        reader.onload=async ev=>{
+          try{
+            const dataUrl=await compressImage(ev.target.result);
+            photos.push(dataUrl);
+          }catch(e){
+            // 압축 실패 시 원본 사용
+            photos.push(ev.target.result);
+          }
+          loaded++;
+          if(loaded===toLoad.length){
+            await savePhotos(dk,type,photos);
+            photoCache[`${dk}:${type}`]=photos;
+            refreshPane(type);
+            if(skipped>0) showToast(`${toLoad.length}장 추가됐어요. (${skipped}장 초과로 제외)`);
+          }
         };
         reader.readAsDataURL(file);
       });
@@ -1444,9 +1459,11 @@ function bindPaneEvents(){
       e.stopPropagation();
       const type=btn.dataset.deltype;
       const idx=parseInt(btn.dataset.delidx);
-      getPhotos(dk,type).then(photos=>{
+      getPhotos(dk,type).then(async photos=>{
         photos.splice(idx,1);
-        savePhotos(dk,type,photos).then(()=>{photoCache[`${dk}:${type}`]=photos;refreshPane(type);});
+        await savePhotos(dk,type,photos);
+        photoCache[`${dk}:${type}`]=photos;
+        refreshPane(type);
       });
     };
   });
