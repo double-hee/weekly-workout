@@ -38,6 +38,13 @@
     .loading-spinner{width:48px;height:48px;border:4px solid rgba(163,230,53,0.2);border-top-color:var(--lime);border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .loading-msg{color:#fff;font-size:14px;font-weight:600;font-family:'Noto Sans KR',sans-serif;}
+    /* 원형 진행률 */
+    .progress-ring-wrap{position:relative;width:80px;height:80px;display:none;align-items:center;justify-content:center;}
+    .progress-ring-wrap.show{display:flex;}
+    .progress-ring{transform:rotate(-90deg);}
+    .progress-ring-bg{fill:none;stroke:rgba(163,230,53,0.15);stroke-width:6;}
+    .progress-ring-bar{fill:none;stroke:var(--lime);stroke-width:6;stroke-linecap:round;stroke-dasharray:219.9;stroke-dashoffset:219.9;transition:stroke-dashoffset 0.3s ease;}
+    .progress-ring-pct{position:absolute;font-size:15px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;}
     /* 완료 토스트 (더 크게) */
     .toast-big{position:fixed;bottom:40px;left:50%;transform:translateX(-50%) translateY(20px);background:#1A2B1A;border:2px solid var(--lime);color:#fff;border-radius:16px;padding:14px 24px;font-size:15px;font-weight:700;z-index:700;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;}
     .toast-big.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -571,19 +578,57 @@
   window.gdUploadPhotos   = gdUploadPhotos;
   window.gdDownloadPhotos = gdDownloadPhotos;
 
-  // ── 로딩/완료 UI ──
-  function showLoading(msg) {
+  function showLoading(msg, showProgress=false) {
     document.getElementById('loadingMsg').textContent = msg;
     document.getElementById('loadingOverlay').classList.add('open');
+    document.getElementById('loadingSpinner').style.display = showProgress?'none':'block';
+    const pw = document.getElementById('progressWrap');
+    pw.classList.toggle('show', showProgress);
+    if (showProgress) setProgress(0);
   }
   function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('open');
+  }
+  function setProgress(pct) {
+    const circumference = 2 * Math.PI * 35; // 219.9
+    const offset = circumference * (1 - pct/100);
+    document.getElementById('progressBar').style.strokeDashoffset = offset;
+    document.getElementById('progressPct').textContent = Math.round(pct) + '%';
   }
   function showBigToast(msg) {
     const el = document.getElementById('toastBig');
     el.textContent = msg;
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 3500);
+  }
+
+  // ── XHR 다운로드 (진행률 지원) ──
+  function xhrDownload(url, headers) {
+    return new Promise((res, rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      Object.entries(headers).forEach(([k,v]) => xhr.setRequestHeader(k, v));
+      xhr.responseType = 'text';
+      xhr.onprogress = e => {
+        if (e.lengthComputable) setProgress(Math.round(e.loaded/e.total*100));
+      };
+      xhr.onload = () => res({ ok: xhr.status>=200&&xhr.status<300, status: xhr.status, text: xhr.responseText });
+      xhr.onerror = () => rej(new Error('Network error'));
+      xhr.send();
+    });
+  }
+  function xhrUpload(url, method, headers, body) {
+    return new Promise((res, rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url);
+      Object.entries(headers).forEach(([k,v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) setProgress(Math.round(e.loaded/e.total*100));
+      };
+      xhr.onload = () => res({ ok: xhr.status>=200&&xhr.status<300, status: xhr.status, text: xhr.responseText });
+      xhr.onerror = () => rej(new Error('Network error'));
+      xhr.send(body);
+    });
   }
 
   // ── Drive 파일 업서트 ──
@@ -635,8 +680,33 @@
       });
       const keys = Object.keys(allEntries);
       if (!keys.length) { hideLoading(); showBigToast('⚠️ 저장된 사진이 없어요.'); return; }
-      showLoading(`사진 업로드 중... (${keys.length}개 항목)`);
-      const res = await gdUpsertFile('workout-photos-all.json', JSON.stringify(allEntries));
+      showLoading(`사진 업로드 중... (${keys.length}개 항목)`, true);
+      const jsonStr = JSON.stringify(allEntries);
+      const listRes2 = await fetch(
+        `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='workout-photos-all.json'&fields=files(id)`,
+        { headers: { Authorization: `Bearer ${gdToken}` } }
+      );
+      const listData2 = await listRes2.json();
+      const existingId = listData2.files?.length ? listData2.files[0].id : null;
+      let res;
+      if (existingId) {
+        res = await xhrUpload(
+          `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,
+          'PATCH',
+          { Authorization:`Bearer ${gdToken}`, 'Content-Type':'application/json' },
+          jsonStr
+        );
+      } else {
+        const meta = JSON.stringify({ name:'workout-photos-all.json', parents:['appDataFolder'] });
+        const b = '-------xboundary';
+        const body = `\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
+        res = await xhrUpload(
+          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+          'POST',
+          { Authorization:`Bearer ${gdToken}`, 'Content-Type':`multipart/related; boundary="${b}"` },
+          body
+        );
+      }
       hideLoading();
       if (res.ok) showBigToast(`✅ 사진 ${keys.length}개 항목 Drive 업로드 완료!`);
       else showBigToast('❌ 업로드 실패: ' + res.status);
@@ -657,13 +727,13 @@
       );
       const listData = await listRes.json();
       if (!listData.files?.length) { hideLoading(); showBigToast('⚠️ Drive에 저장된 사진이 없어요.'); return; }
-      showLoading('사진 다운로드 중...');
-      const fileRes = await fetch(
+      showLoading('사진 다운로드 중...', true);
+      const fileRes = await xhrDownload(
         `https://www.googleapis.com/drive/v3/files/${listData.files[0].id}?alt=media`,
-        { headers: { Authorization: `Bearer ${gdToken}` } }
+        { Authorization: `Bearer ${gdToken}` }
       );
       if (!fileRes.ok) { hideLoading(); showBigToast('❌ 다운로드 실패: ' + fileRes.status); return; }
-      const allEntries = await fileRes.json();
+      const allEntries = JSON.parse(fileRes.text);
       showLoading('사진 저장 중...');
       const db = await new Promise((res,rej)=>{
         const r = indexedDB.open('workout_photos_db', 1);
@@ -703,7 +773,14 @@
 
 <!-- 로딩 오버레이 -->
 <div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-spinner"></div>
+  <div class="loading-spinner" id="loadingSpinner"></div>
+  <div class="progress-ring-wrap" id="progressWrap">
+    <svg class="progress-ring" width="80" height="80">
+      <circle class="progress-ring-bg" cx="40" cy="40" r="35"/>
+      <circle class="progress-ring-bar" id="progressBar" cx="40" cy="40" r="35"/>
+    </svg>
+    <span class="progress-ring-pct" id="progressPct">0%</span>
+  </div>
   <div class="loading-msg" id="loadingMsg">처리 중...</div>
 </div>
 <!-- 완료 토스트 (크게) -->
@@ -714,13 +791,14 @@
   <div class="gd-box">
     <div class="gd-title">☁️ Google Drive 동기화</div>
     <div class="gd-desc">Google 계정으로 로그인 없이<br>Drive에 직접 저장·불러오기 해요.<br>버튼을 누르면 Google 로그인 창이 열려요.</div>
+    <div style="font-size:11px;color:var(--lime);font-weight:700;letter-spacing:0.05em;margin-bottom:-4px;">📋 운동 목록 동기화</div>
     <button class="gd-action-btn gd-save-btn" id="gdSaveBtn">
       <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#1A2B1A" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#1A2B1A" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#1A2B1A" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#1A2B1A" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
       현재 기기 → Drive 저장
     </button>
     <button class="gd-action-btn gd-load-btn" id="gdLoadBtn">⬇️ Drive → 현재 기기 불러오기</button>
     <div style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;padding-top:12px;">
-      <div style="font-size:11px;color:var(--subtext);margin-bottom:8px;text-align:center;">📸 사진 일괄 동기화 (폰 교체 등)</div>
+      <div style="font-size:11px;color:var(--lime);font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">📸 사진 일괄 동기화 (폰 교체 등)</div>
       <div style="display:flex;gap:8px;">
         <button class="gd-action-btn gd-load-btn" id="gdPhotoUploadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↑ 사진 올리기</button>
         <button class="gd-action-btn gd-load-btn" id="gdPhotoDownloadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↓ 사진 받기</button>
