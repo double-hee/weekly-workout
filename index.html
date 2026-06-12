@@ -1714,6 +1714,7 @@ function buildPane(item){
       <button class="photo-sel-cancel-btn" data-seltype="${type}">취소</button>
     </div>
     <div class="photo-grid" id="photoGrid-${type}">${photoThumbsHTML}</div>
+    ${photos.length<MAX_PHOTOS?`<div class="photo-grid photo-add-row">${photoAddHTML}</div>`:''}
   </div>`;
 }
 
@@ -2381,7 +2382,8 @@ function enterSelectMode(type){
   });
   const bar=document.getElementById(`photoSelectBar-${type}`);
   if(bar) bar.style.display='flex';
-  // 공유 버튼은 숨기지 않고 유지
+  const toolbar=document.getElementById(`photoShareToolbar-${type}`);
+  if(toolbar) toolbar.style.display='none';
   updateSelCount(type);
 }
 function exitSelectMode(type){
@@ -2390,6 +2392,8 @@ function exitSelectMode(type){
   });
   const bar=document.getElementById(`photoSelectBar-${type}`);
   if(bar) bar.style.display='none';
+  const toolbar=document.getElementById(`photoShareToolbar-${type}`);
+  if(toolbar) toolbar.style.display='';
 }
 function updateSelCount(type){
   const count=document.querySelectorAll(`#photoGrid-${type} .photo-thumb.selected`).length;
