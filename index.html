@@ -509,17 +509,18 @@
           btn.textContent = '🔄 동기화 재실행';
           btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
         }
-        showBigToast('✅ 로그인 완료! 동기화 시작...');
         if(cb) cb();
         else gdSyncDown();
       }
     }).requestAccessToken();
   }
 
-  // ── Drive API 헬퍼 ──
+  // ── Drive API 헬퍼 (keepalive 옵션 지원) ──
   async function gdFetch(path, opts={}) {
     const res = await fetch('https://www.googleapis.com/'+path, {
-      ...opts, headers: { Authorization:'Bearer '+gdToken, ...(opts.headers||{}) }
+      ...opts,
+      keepalive: true, // 페이지 닫힐 때도 요청 완료
+      headers: { Authorization:'Bearer '+gdToken, ...(opts.headers||{}) }
     });
     return res;
   }
@@ -615,13 +616,40 @@ ${jsonStr}
     if(gdToken && SYNC_KEYS.includes(k)){
       gdDirty=true;
       clearTimeout(gdSaveTimer);
-      gdSaveTimer=setTimeout(gdSyncUp, 15000); // 15초 debounce
+      gdSaveTimer=setTimeout(gdSyncUp, 5000); // 5초 debounce
     }
   };
 
-  // 페이지 숨김/닫힘 시 즉시 업로드
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') gdSyncUp(); });
-  window.addEventListener('pagehide', gdSyncUp);
+  // 페이지 숨김/닫힘 시 즉시 업로드 (keepalive)
+  function gdSyncUpSync() {
+    if(!gdToken || !gdDirty) return;
+    gdDirty = false;
+    try {
+      const payload={};
+      SYNC_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v) payload[k]=v; });
+      const jsonStr = JSON.stringify(payload);
+      // keepalive fetch — 페이지 닫혀도 완료됨
+      gdFindFile(GD_DATA_FILE).then(existing => {
+        if(existing){
+          fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+            { method:'PATCH', keepalive:true,
+              headers:{ Authorization:'Bearer '+gdToken, 'Content-Type':'application/json' },
+              body: jsonStr });
+        } else {
+          const meta=JSON.stringify({name:GD_DATA_FILE,parents:['appDataFolder']});
+          const b='--gdbound';
+          const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
+          fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+            { method:'POST', keepalive:true,
+              headers:{ Authorization:'Bearer '+gdToken, 'Content-Type':`multipart/related; boundary="${b}"` },
+              body });
+        }
+        _lsSet(GD_SYNC_TS, String(Date.now()));
+      });
+    } catch(e) { gdDirty=true; }
+  }
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') gdSyncUpSync(); });
+  window.addEventListener('pagehide', gdSyncUpSync);
 
 
 
