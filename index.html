@@ -503,6 +503,12 @@
         if(r.error){ gdSetStatus('error'); showBigToast('❌ 로그인 실패: '+r.error); return; }
         gdToken = r.access_token;
         document.getElementById('gdOverlay').classList.remove('open');
+        // 로그인 버튼 → 재동기화 버튼으로 교체
+        const btn = document.getElementById('gdLoginBtn');
+        if(btn){
+          btn.textContent = '🔄 동기화 재실행';
+          btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
+        }
         showBigToast('✅ 로그인 완료! 동기화 시작...');
         if(cb) cb();
         else gdSyncDown();
@@ -704,6 +710,7 @@ ${jsonStr}
 
   // window exports
   window.gdLogin            = gdLogin;
+  window.gdSyncDown         = gdSyncDown;
   window.gdUploadAllPhotos  = gdUploadAllPhotos;
   window.gdDownloadAllPhotos= gdDownloadAllPhotos;
   window.gdSetStatus        = gdSetStatus;
@@ -711,6 +718,7 @@ ${jsonStr}
   window.hideLoading        = hideLoading;
   window.setProgress        = setProgress;
   window.showBigToast       = showBigToast;
+  Object.defineProperty(window,'gdToken',{get:()=>gdToken});
 
   // ── 페이지 로드 시 로그인 팝업 자동 표시 ──
   window.addEventListener('DOMContentLoaded', ()=>{
@@ -2863,7 +2871,15 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   const safe=(id,fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
   safe('gdOpenBtn',         ()=>overlay.classList.add('open'));
   safe('gdCloseBtn',        ()=>overlay.classList.remove('open'));
-  safe('gdLoginBtn',        ()=>window.gdLogin && window.gdLogin());
+  safe('gdLoginBtn', ()=>{
+    if(window.gdToken){
+      // 이미 로그인 → 재동기화
+      document.getElementById('gdOverlay').classList.remove('open');
+      window.gdSyncDown && window.gdSyncDown();
+    } else {
+      window.gdLogin && window.gdLogin();
+    }
+  });
   safe('gdPhotoUploadBtn',  ()=>{ overlay.classList.remove('open'); window.gdUploadAllPhotos && window.gdUploadAllPhotos(); });
   safe('gdPhotoDownloadBtn',()=>{ overlay.classList.remove('open'); window.gdDownloadAllPhotos && window.gdDownloadAllPhotos(); });
   overlay.onclick=e=>{ if(e.target===overlay) overlay.classList.remove('open'); };
