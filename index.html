@@ -871,13 +871,12 @@
   });
   window.addEventListener('beforeunload', () => gdSilentUpload());
 
-  // 로그인 후 자동 다운로드 트리거
+  // 로그인 직후 자동 다운로드 트리거
   window.gdAutoStart = async () => {
     await gdSilentDownload();
   };
 
   // 토큰 받은 직후 자동 다운로드
-  const _origReqToken = gdRequestToken;
   function gdRequestToken(callback) {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: GD_CLIENT_ID,
@@ -885,12 +884,35 @@
       callback: async (res) => {
         if (res.error) return;
         gdToken = res.access_token;
-        await gdSilentDownload(); // 로그인 직후 조용히 다운로드
+        await gdSilentDownload();
         if (callback) callback();
       }
     });
     client.requestAccessToken();
   }
+
+  // 페이지 로드 시 조용히 토큰 요청 (팝업 없이 — 이미 로그인된 계정 자동 감지)
+  function gdAutoLogin() {
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GD_CLIENT_ID,
+        scope: GD_SCOPES,
+        prompt: 'none', // 팝업 없이 시도
+        callback: async (res) => {
+          if (res.error) return; // 로그인 안 된 상태면 조용히 종료
+          gdToken = res.access_token;
+          gdSetStatus('syncing');
+          await gdSilentDownload();
+        }
+      });
+      client.requestAccessToken({ prompt: 'none' });
+    } catch(e) { /* 조용히 실패 */ }
+  }
+
+  // GSI 라이브러리 로드 완료 후 자동 로그인 시도
+  window.addEventListener('load', () => {
+    setTimeout(gdAutoLogin, 1000); // GSI 초기화 대기
+  });
   </script>
 </head>
 <body>
