@@ -22,6 +22,7 @@
     .gd-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0;max-width:860px;margin:0 auto;}
     .gd-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:var(--text);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:background 0.15s;display:flex;align-items:center;gap:6px;}
     .gd-btn:hover{background:rgba(255,255,255,0.15);}
+    .gd-spin{display:inline-block;animation:spin 0.8s linear infinite;}
     .gd-btn-save{background:rgba(163,230,53,0.1);border-color:rgba(163,230,53,0.25);color:var(--lime);}
     .gd-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
     .gd-overlay.open{display:flex;}
@@ -778,18 +779,46 @@
   window.gdUpload  = gdUpload;
   window.gdDownload= gdDownload;
 
-  // ── 자동 동기화 ──
+  // ── 동기화 상태 아이콘 ──
+  let gdStatusTimer = null;
+  function gdSetStatus(state) {
+    // state: 'syncing' | 'ok' | 'error' | 'idle'
+    const icon = document.getElementById('gdStatusIcon');
+    const text = document.getElementById('gdStatusText');
+    if (!icon) return;
+    clearTimeout(gdStatusTimer);
+    if (state === 'syncing') {
+      icon.className = 'gd-spin';
+      icon.textContent = '🔄';
+      text.textContent = '동기화 중...';
+    } else if (state === 'ok') {
+      icon.className = '';
+      icon.textContent = '✅';
+      text.textContent = '동기화 완료';
+      gdStatusTimer = setTimeout(() => gdSetStatus('idle'), 3000);
+    } else if (state === 'error') {
+      icon.className = '';
+      icon.textContent = '❌';
+      text.textContent = '동기화 실패';
+      gdStatusTimer = setTimeout(() => gdSetStatus('idle'), 5000);
+    } else {
+      icon.className = '';
+      icon.textContent = gdToken ? '☁️' : '☁️';
+      text.textContent = 'Drive 동기화';
+    }
+  }
+  window.gdSetStatus = gdSetStatus;
   const GD_LAST_SYNC_KEY = 'gd_last_sync_ts';
   let gdAutoSaveTimer = null;
   let gdDirty = false;
 
-  // 조용한 백그라운드 다운로드 (UI 없음)
+  // 조용한 백그라운드 다운로드
   async function gdSilentDownload() {
     if (!gdToken) return;
     try {
+      gdSetStatus('syncing');
       const fileId = await gdFindFile();
-      if (!fileId) return;
-      // 마지막 동기화 이후 변경 확인 (Drive 파일 수정시간 비교)
+      if (!fileId) { gdSetStatus('idle'); return; }
       const metaRes = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`,
         { headers: { Authorization: `Bearer ${gdToken}` } }
@@ -797,31 +826,32 @@
       const meta = await metaRes.json();
       const driveTs = new Date(meta.modifiedTime).getTime();
       const lastSync = parseInt(localStorage.getItem(GD_LAST_SYNC_KEY)||'0');
-      if (driveTs <= lastSync) return; // 변경 없으면 스킵
+      if (driveTs <= lastSync) { gdSetStatus('ok'); return; }
       const res = await xhrDownload(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
         { Authorization: `Bearer ${gdToken}` }
       );
-      if (!res.ok) return;
+      if (!res.ok) { gdSetStatus('error'); return; }
       const data = JSON.parse(res.text);
       Object.entries(data).forEach(([k,v]) => localStorage.setItem(k,v));
       localStorage.setItem(GD_LAST_SYNC_KEY, Date.now());
-      // 조용히 화면 갱신
       if (window.renderSlides) window.renderSlides();
-    } catch(e) { /* 조용히 실패 */ }
+      gdSetStatus('ok');
+    } catch(e) { gdSetStatus('error'); }
   }
 
-  // 조용한 백그라운드 업로드 (UI 없음)
+  // 조용한 백그라운드 업로드
   async function gdSilentUpload() {
     if (!gdToken || !gdDirty) return;
     gdDirty = false;
     try {
+      gdSetStatus('syncing');
       const payload = {};
       SYNC_KEYS.forEach(k => { const v=localStorage.getItem(k); if(v) payload[k]=v; });
-      const jsonStr = JSON.stringify(payload);
-      await gdUpsertFile(GD_FILE_NAME, jsonStr);
+      await gdUpsertFile(GD_FILE_NAME, JSON.stringify(payload));
       localStorage.setItem(GD_LAST_SYNC_KEY, Date.now());
-    } catch(e) { gdDirty = true; /* 실패 시 dirty 유지 */ }
+      gdSetStatus('ok');
+    } catch(e) { gdDirty = true; gdSetStatus('error'); }
   }
 
   // localStorage 변경 감지 → 30초 debounce 업로드
@@ -867,7 +897,10 @@
 
 <!-- Drive 동기화 바 -->
 <div class="gd-bar">
-  <button class="gd-btn" id="gdOpenBtn">☁️ Drive 동기화</button>
+  <button class="gd-btn" id="gdOpenBtn">
+    <span id="gdStatusIcon">☁️</span>
+    <span id="gdStatusText">Drive 동기화</span>
+  </button>
 </div>
 
 <!-- 로딩 오버레이 -->
