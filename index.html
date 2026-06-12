@@ -18,20 +18,21 @@
 
     /* Swipe */
     .page-outer{overflow:hidden;width:100%;}
-    /* Firebase 로그인 */
-    .fb-bar{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 16px 0;max-width:860px;margin:0 auto;}
-    .fb-user{font-size:12px;color:var(--subtext);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;}
-    .fb-auth-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:var(--text);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:background 0.15s;}
-    .fb-auth-btn:hover{background:rgba(255,255,255,0.15);}
-    .fb-sync-btn{background:rgba(163,230,53,0.1);border:1px solid rgba(163,230,53,0.25);color:var(--lime);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-    .fb-login-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
-    .fb-login-overlay.open{display:flex;}
-    .fb-login-box{background:#1A2B1A;border:1px solid rgba(163,230,53,0.25);border-radius:20px;padding:32px 28px;width:min(320px,90vw);text-align:center;}
-    .fb-login-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;}
-    .fb-login-desc{font-size:13px;color:var(--subtext);margin-bottom:24px;line-height:1.6;}
-    .fb-google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;background:#fff;color:#333;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-    .fb-google-btn:hover{background:#f0f0f0;}
-    .fb-skip-btn{margin-top:12px;background:none;border:none;color:var(--subtext);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;text-decoration:underline;}
+    /* Drive 동기화 */
+    .gd-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0;max-width:860px;margin:0 auto;}
+    .gd-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:var(--text);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:background 0.15s;display:flex;align-items:center;gap:6px;}
+    .gd-btn:hover{background:rgba(255,255,255,0.15);}
+    .gd-btn-save{background:rgba(163,230,53,0.1);border-color:rgba(163,230,53,0.25);color:var(--lime);}
+    .gd-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+    .gd-overlay.open{display:flex;}
+    .gd-box{background:#1A2B1A;border:1px solid rgba(163,230,53,0.25);border-radius:20px;padding:28px;width:min(310px,90vw);display:flex;flex-direction:column;gap:12px;}
+    .gd-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px;}
+    .gd-desc{font-size:12px;color:var(--subtext);text-align:center;line-height:1.6;margin-bottom:4px;}
+    .gd-action-btn{width:100%;padding:11px;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;}
+    .gd-save-btn{background:var(--lime);color:var(--bg);}
+    .gd-load-btn{background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.15);}
+    .gd-close-btn{background:none;border:none;color:var(--subtext);font-size:12px;cursor:pointer;text-align:center;text-decoration:underline;font-family:'Noto Sans KR',sans-serif;}
+
     .page-track{display:flex;transition:transform 0.38s cubic-bezier(0.4,0,0.2,1);will-change:transform;}
     .page-slide{min-width:100vw;width:100vw;padding:40px 20px 60px;flex-shrink:0;}
 
@@ -220,6 +221,8 @@
     .photo-add-icon{font-size:20px;}
     .photo-add-cam{background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;color:var(--subtext);transition:all 0.15s;display:flex;align-items:center;gap:4px;font-family:'Noto Sans KR',sans-serif;}
     .photo-add-cam:hover{background:rgba(255,255,255,0.09);}
+    .photo-drive-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--subtext);border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer;transition:background 0.15s;}
+    .photo-drive-btn:hover{background:rgba(163,230,53,0.12);color:var(--lime);}
     /* 공유 버튼 */
     .photo-share-start-btn{background:rgba(163,230,53,0.1);border:1px solid rgba(163,230,53,0.25);color:var(--lime);border-radius:16px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:background 0.15s;}
     .photo-share-start-btn:hover{background:rgba(163,230,53,0.2);}
@@ -431,103 +434,261 @@
     .picker-done-golf{background:var(--lime);color:var(--bg);}
     .picker-done-run{background:var(--sky);color:var(--bg);}
   </style>
-  <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <!-- Google Drive API -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
-  firebase.initializeApp({
-    apiKey: "AIzaSyDPhoGyV3UUEbwnrhX_oUOjdTIAAa-4WgU",
-    authDomain: "weekly-workout-551d6.firebaseapp.com",
-    projectId: "weekly-workout-551d6",
-    storageBucket: "weekly-workout-551d6.firebasestorage.app",
-    messagingSenderId: "1066596069648",
-    appId: "1:1066596069648:web:17ee0d99f85940a24cb595"
-  });
-  const fbAuth = firebase.auth();
-  const fbDb   = firebase.firestore();
-  const fbProvider = new firebase.auth.GoogleAuthProvider();
+  const GD_CLIENT_ID = '1066596069648-1l0tl9n9g20ch87f065f0l6f870ng3tb.apps.googleusercontent.com';
+  const GD_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+  const GD_FILE_NAME = 'workout-data.json';
+  let gdToken = null;
+  let gdUser = null;
 
-  window.fbSignIn  = () => fbAuth.signInWithPopup(fbProvider);
-  window.fbSignOut = () => fbAuth.signOut();
+  const SYNC_KEYS = [
+    'workout_notes_v4','workout_actual_v4','workout_custom_v4',
+    'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
+    'workout_removed_v1','workout_tab_order_v1','workout_routine_v2',
+    'workout_routine_history_v1','workout_user_default_v1'
+  ];
 
-  window.fbUploadAll = async () => {
-    const user = fbAuth.currentUser;
-    if (!user){ showToast('먼저 로그인해주세요.'); return; }
-    const KEYS = [
-      'workout_notes_v4','workout_actual_v4','workout_custom_v4',
-      'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
-      'workout_removed_v1','workout_tab_order_v1','workout_routine_v2',
-      'workout_routine_history_v1','workout_user_default_v1'
-    ];
-    const batch = fbDb.batch();
-    KEYS.forEach(k => {
-      const val = localStorage.getItem(k);
-      if (val) batch.set(fbDb.collection('users').doc(user.uid).collection('data').doc(k), { v: val });
+  // ── 토큰 요청 ──
+  function gdRequestToken(callback) {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GD_CLIENT_ID,
+      scope: GD_SCOPES,
+      callback: (res) => {
+        if (res.error) { showToast('로그인 실패: ' + res.error); return; }
+        gdToken = res.access_token;
+        callback();
+      }
     });
-    await batch.commit();
-    showToast('☁️ 클라우드에 저장됐어요!');
-  };
+    client.requestAccessToken();
+  }
 
-  window.fbDownloadAll = async () => {
-    const user = fbAuth.currentUser;
-    if (!user) return;
-    try {
-      const snap = await fbDb.collection('users').doc(user.uid).collection('data').get();
-      if (snap.empty){ showToast('클라우드에 저장된 데이터가 없어요.'); return; }
-      snap.forEach(d => localStorage.setItem(d.id, d.data().v));
-      showToast('⬇️ 불러왔어요. 새로고침합니다...');
-      setTimeout(() => location.reload(), 1200);
-    } catch(e) {
-      showToast('불러오기 실패: ' + e.message);
-    }
-  };
+  // ── Drive에서 파일 ID 찾기 ──
+  async function gdFindFile() {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${GD_FILE_NAME}'&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    const data = await res.json();
+    return data.files && data.files.length > 0 ? data.files[0].id : null;
+  }
 
-  fbAuth.onAuthStateChanged(user => {
-    const authBtn   = document.getElementById('fbAuthBtn');
-    const syncBtn   = document.getElementById('fbSyncBtn');
-    const userInfo  = document.getElementById('fbUserInfo');
-    const loggedIn  = document.getElementById('fbLoggedInActions');
-    const googleBtn = document.querySelector('.fb-google-btn');
-    if (user) {
-      if (authBtn)   authBtn.textContent   = '☁️ 동기화';
-      if (syncBtn)   syncBtn.style.display  = 'inline-block';
-      if (userInfo)  userInfo.textContent   = user.displayName || user.email;
-      if (loggedIn)  loggedIn.style.display = 'flex';
-      if (googleBtn) googleBtn.style.display = 'none';
+  // ── Drive에 저장 (업로드) ──
+  async function gdUpload() {
+    if (!gdToken) { gdRequestToken(gdUpload); return; }
+    const payload = {};
+    SYNC_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v) payload[k] = v; });
+    const body = JSON.stringify(payload);
+    const fileId = await gdFindFile();
+    let url, method;
+    if (fileId) {
+      url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+      method = 'PATCH';
     } else {
-      if (authBtn)   authBtn.textContent   = 'Google로 로그인';
-      if (syncBtn)   syncBtn.style.display  = 'none';
-      if (userInfo)  userInfo.textContent   = '';
-      if (loggedIn)  loggedIn.style.display = 'none';
-      if (googleBtn) googleBtn.style.display = 'flex';
+      // 파일 없으면 메타데이터+내용 multipart 업로드
+      const meta = JSON.stringify({ name: GD_FILE_NAME, parents: ['appDataFolder'] });
+      const boundary = '-------314159265358979323846';
+      const delimiter = `\r\n--${boundary}\r\n`;
+      const close = `\r\n--${boundary}--`;
+      const multipart = delimiter +
+        'Content-Type: application/json\r\n\r\n' + meta +
+        delimiter + 'Content-Type: application/json\r\n\r\n' + body + close;
+      const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method: 'POST', headers: { Authorization: `Bearer ${gdToken}`, 'Content-Type': `multipart/related; boundary="${boundary}"` }, body: multipart }
+      );
+      if (res.ok) showToast('☁️ Drive에 저장됐어요!');
+      else showToast('저장 실패: ' + res.status);
+      return;
     }
-  });
+    const res = await fetch(url, {
+      method, headers: { Authorization: `Bearer ${gdToken}`, 'Content-Type': 'application/json' }, body
+    });
+    if (res.ok) showToast('☁️ Drive에 저장됐어요!');
+    else showToast('저장 실패: ' + res.status);
+  }
+
+  // ── Drive에서 불러오기 ──
+  async function gdDownload() {
+    if (!gdToken) { gdRequestToken(gdDownload); return; }
+    const fileId = await gdFindFile();
+    if (!fileId) { showToast('Drive에 저장된 데이터가 없어요.'); return; }
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    if (!res.ok) { showToast('불러오기 실패: ' + res.status); return; }
+    const data = await res.json();
+    Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
+    showToast('⬇️ 불러왔어요. 새로고침합니다...');
+    setTimeout(() => location.reload(), 1200);
+  }
+
+  // ── 사진 Drive 업로드 (특정 dk:type) ──
+  async function gdUploadPhotos(dk, type) {
+    if (!gdToken) { await new Promise(res => gdRequestToken(res)); }
+    const photos = await getPhotos(dk, type);
+    if (!photos.length) { showToast('업로드할 사진이 없어요.'); return; }
+    const fname = `workout-photo-${dk}-${type}.json`;
+    // 기존 파일 찾기
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${fname}'&fields=files(id)`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    const listData = await listRes.json();
+    const existingId = listData.files && listData.files.length > 0 ? listData.files[0].id : null;
+    const body = JSON.stringify(photos);
+    let res;
+    if (existingId) {
+      res = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,
+        { method: 'PATCH', headers: { Authorization: `Bearer ${gdToken}`, 'Content-Type': 'application/json' }, body }
+      );
+    } else {
+      const meta = JSON.stringify({ name: fname, parents: ['appDataFolder'] });
+      const boundary = '-------314159265358979323846';
+      const multipart = `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+      res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method: 'POST', headers: { Authorization: `Bearer ${gdToken}`, 'Content-Type': `multipart/related; boundary="-------314159265358979323846"` }, body: multipart }
+      );
+    }
+    if (res.ok) showToast(`📸 ${photos.length}장 Drive에 업로드됐어요!`);
+    else showToast('업로드 실패: ' + res.status);
+  }
+
+  // ── 사진 Drive 다운로드 (특정 dk:type) ──
+  async function gdDownloadPhotos(dk, type) {
+    if (!gdToken) { await new Promise(res => gdRequestToken(res)); }
+    const fname = `workout-photo-${dk}-${type}.json`;
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${fname}'&fields=files(id)`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    const listData = await listRes.json();
+    if (!listData.files || !listData.files.length) { showToast('Drive에 저장된 사진이 없어요.'); return; }
+    const fileId = listData.files[0].id;
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    if (!res.ok) { showToast('다운로드 실패: ' + res.status); return; }
+    const photos = await res.json();
+    await savePhotos(dk, type, photos);
+    photoCache[`${dk}:${type}`] = photos;
+    showToast(`📸 ${photos.length}장 불러왔어요!`);
+    refreshPane(type);
+  }
+
+  window.gdUploadPhotos   = gdUploadPhotos;
+  window.gdDownloadPhotos = gdDownloadPhotos;
+
+  // ── 사진 전체 Drive 업로드 ──
+  async function gdUploadAllPhotos() {
+    if (!gdToken) { await new Promise(res => gdRequestToken(res)); }
+    showToast('사진 수집 중...');
+    // IndexedDB에서 모든 사진 키 조회
+    const db = await openIDB();
+    const allKeys = await new Promise((res,rej)=>{
+      const tx=db.transaction(IDB_STORE,'readonly');
+      const req=tx.objectStore(IDB_STORE).getAllKeys();
+      req.onsuccess=()=>res(req.result);
+      req.onerror=rej;
+    });
+    if (!allKeys.length) { showToast('저장된 사진이 없어요.'); return; }
+    const allPhotos = {};
+    for (const key of allKeys) {
+      const photos = await getPhotos(...key.split(':'));
+      if (photos.length) allPhotos[key] = photos;
+    }
+    const body = JSON.stringify(allPhotos);
+    const fname = 'workout-photos-all.json';
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${fname}'&fields=files(id)`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    const listData = await listRes.json();
+    const existingId = listData.files?.length ? listData.files[0].id : null;
+    let res;
+    if (existingId) {
+      res = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`,
+        { method:'PATCH', headers:{ Authorization:`Bearer ${gdToken}`, 'Content-Type':'application/json' }, body }
+      );
+    } else {
+      const meta = JSON.stringify({ name: fname, parents: ['appDataFolder'] });
+      const b = '-------314159265358979323846';
+      const multipart = `\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
+      res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method:'POST', headers:{ Authorization:`Bearer ${gdToken}`, 'Content-Type':`multipart/related; boundary="${b}"` }, body: multipart }
+      );
+    }
+    const count = Object.keys(allPhotos).length;
+    if (res.ok) showToast(`📸 ${count}개 항목 Drive에 업로드됐어요!`);
+    else showToast('업로드 실패: ' + res.status);
+  }
+
+  // ── 사진 전체 Drive 다운로드 ──
+  async function gdDownloadAllPhotos() {
+    if (!gdToken) { await new Promise(res => gdRequestToken(res)); }
+    const fname = 'workout-photos-all.json';
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${fname}'&fields=files(id)`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    const listData = await listRes.json();
+    if (!listData.files?.length) { showToast('Drive에 저장된 사진이 없어요.'); return; }
+    const fileId = listData.files[0].id;
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${gdToken}` } }
+    );
+    if (!res.ok) { showToast('다운로드 실패: ' + res.status); return; }
+    const allPhotos = await res.json();
+    for (const [key, photos] of Object.entries(allPhotos)) {
+      const [dk, type] = key.split(':');
+      await savePhotos(dk, type, photos);
+      photoCache[key] = photos;
+    }
+    const count = Object.keys(allPhotos).length;
+    showToast(`📸 ${count}개 항목 불러왔어요!`);
+  }
+
+  window.gdUploadAllPhotos   = gdUploadAllPhotos;
+  window.gdDownloadAllPhotos = gdDownloadAllPhotos;
+
+  window.gdSignIn  = () => gdRequestToken(gdUpload);
+  window.gdUpload  = gdUpload;
+  window.gdDownload= gdDownload;
   </script>
 </head>
 <body>
-<!-- Firebase 로그인 바 -->
-<div class="fb-bar">
-  <span class="fb-user" id="fbUserInfo"></span>
-  <button class="fb-sync-btn" id="fbSyncBtn" style="display:none">☁️ 저장</button>
-  <button class="fb-auth-btn" id="fbAuthBtn">Google로 로그인</button>
+
+<!-- Drive 동기화 바 -->
+<div class="gd-bar">
+  <button class="gd-btn" id="gdOpenBtn">☁️ Drive 동기화</button>
 </div>
 
-<!-- 로그인 팝업 -->
-<div class="fb-login-overlay" id="fbLoginOverlay">
-  <div class="fb-login-box">
-    <div class="fb-login-title">☁️ 클라우드 동기화</div>
-    <div class="fb-login-desc">Google 계정으로 로그인하면<br>모든 기기에서 데이터를 공유할 수 있어요.</div>
-    <button class="fb-google-btn">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
-      Google로 로그인
+<!-- Drive 동기화 팝업 -->
+<div class="gd-overlay" id="gdOverlay">
+  <div class="gd-box">
+    <div class="gd-title">☁️ Google Drive 동기화</div>
+    <div class="gd-desc">Google 계정으로 로그인 없이<br>Drive에 직접 저장·불러오기 해요.<br>버튼을 누르면 Google 로그인 창이 열려요.</div>
+    <button class="gd-action-btn gd-save-btn" id="gdSaveBtn">
+      <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#1A2B1A" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#1A2B1A" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#1A2B1A" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#1A2B1A" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      현재 기기 → Drive 저장
     </button>
-    <div id="fbLoggedInActions" style="display:none;margin-top:16px;flex-direction:column;gap:8px;">
-      <button class="fb-sync-btn" id="fbUploadBtn" style="width:100%;padding:10px;">☁️ 현재 기기 → 클라우드 저장</button>
-      <button class="fb-sync-btn" id="fbDownloadBtn" style="width:100%;padding:10px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.15);color:var(--text);">⬇️ 클라우드 → 현재 기기로 불러오기</button>
-      <button class="fb-auth-btn" id="fbLogoutBtn" style="width:100%;padding:10px;justify-content:center;">로그아웃</button>
+    <button class="gd-action-btn gd-load-btn" id="gdLoadBtn">⬇️ Drive → 현재 기기 불러오기</button>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;padding-top:12px;">
+      <div style="font-size:11px;color:var(--subtext);margin-bottom:8px;text-align:center;">📸 사진 일괄 동기화 (폰 교체 등)</div>
+      <div style="display:flex;gap:8px;">
+        <button class="gd-action-btn gd-load-btn" id="gdPhotoUploadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↑ 사진 올리기</button>
+        <button class="gd-action-btn gd-load-btn" id="gdPhotoDownloadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↓ 사진 받기</button>
+      </div>
     </div>
-    <button class="fb-skip-btn" onclick="document.getElementById('fbLoginOverlay').classList.remove('open')">닫기</button>
+    <button class="gd-close-btn" id="gdCloseBtn">닫기</button>
   </div>
 </div>
 
@@ -2624,24 +2785,29 @@ document.getElementById('calPrev').onclick=e=>{e.stopPropagation();goCalMonth(-1
 document.getElementById('calNext').onclick=e=>{e.stopPropagation();goCalMonth(1);};
 document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.getElementById('calPickerOverlay'))closeCalPicker();};
 
-/* ══ FIREBASE 버튼 바인딩 ══ */
+
+/* ══ GOOGLE DRIVE 버튼 바인딩 ══ */
 (function(){
-  const overlay=document.getElementById('fbLoginOverlay');
-  const authBtn=document.getElementById('fbAuthBtn');
-  const syncBtn=document.getElementById('fbSyncBtn');
-  const googleBtn=document.querySelector('.fb-google-btn');
-  const uploadBtn=document.getElementById('fbUploadBtn');
-  const downloadBtn=document.getElementById('fbDownloadBtn');
-  const logoutBtn=document.getElementById('fbLogoutBtn');
-  const closeBtn=document.querySelector('.fb-skip-btn');
-  if(authBtn) authBtn.onclick=()=>overlay.classList.toggle('open');
-  if(syncBtn) syncBtn.onclick=()=>window.fbUploadAll&&window.fbUploadAll();
-  if(googleBtn) googleBtn.onclick=()=>{if(window.fbSignIn)window.fbSignIn().then(()=>overlay.classList.remove('open')).catch(e=>showToast('로그인 오류: '+e.message));};
-  if(uploadBtn) uploadBtn.onclick=()=>{window.fbUploadAll&&window.fbUploadAll();overlay.classList.remove('open');};
-  if(downloadBtn) downloadBtn.onclick=()=>window.fbDownloadAll&&window.fbDownloadAll();
-  if(logoutBtn) logoutBtn.onclick=()=>{window.fbSignOut&&window.fbSignOut();overlay.classList.remove('open');};
-  if(closeBtn) closeBtn.onclick=()=>overlay.classList.remove('open');
-  if(overlay) overlay.onclick=e=>{if(e.target===overlay)overlay.classList.remove('open');};
+  const overlay=document.getElementById('gdOverlay');
+  document.getElementById('gdOpenBtn').onclick=()=>overlay.classList.add('open');
+  document.getElementById('gdPhotoUploadBtn').onclick=()=>{
+    overlay.classList.remove('open');
+    window.gdUploadAllPhotos && window.gdUploadAllPhotos();
+  };
+  document.getElementById('gdPhotoDownloadBtn').onclick=()=>{
+    overlay.classList.remove('open');
+    window.gdDownloadAllPhotos && window.gdDownloadAllPhotos();
+  };
+  document.getElementById('gdCloseBtn').onclick=()=>overlay.classList.remove('open');
+  overlay.onclick=e=>{if(e.target===overlay)overlay.classList.remove('open');};
+  document.getElementById('gdSaveBtn').onclick=()=>{
+    overlay.classList.remove('open');
+    window.gdUpload && window.gdUpload();
+  };
+  document.getElementById('gdLoadBtn').onclick=()=>{
+    overlay.classList.remove('open');
+    window.gdDownload && window.gdDownload();
+  };
 })();
 
 /* ══ INIT ══ */
