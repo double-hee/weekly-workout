@@ -613,8 +613,9 @@
     } catch(e){gdSetStatus('error');}
     gdSyncing=false;
   }
-  async function gdSyncUp() {
-    if(!gdToken||!gdDirty||gdSyncing) return;
+  // ── 통합 업로드 (모든 상황에서 동일하게 동작) ──
+  async function gdUpload() {
+    if(!gdToken) return;
     gdDirty=false; gdSyncing=true; gdSetStatus('syncing');
     try {
       const payload={};
@@ -622,8 +623,14 @@
       await gdWriteFile(GD_DATA_FILE, JSON.stringify(payload));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
-    } catch(e){gdDirty=true;gdSetStatus('error');}
+    } catch(e){ gdDirty=true; gdSetStatus('error'); }
     gdSyncing=false;
+  }
+
+  // 5초 debounce (수정 감지 시)
+  async function gdSyncUp() {
+    if(!gdToken||!gdDirty||gdSyncing) return;
+    await gdUpload();
   }
 
   // ── localStorage dirty 감지 ──
@@ -737,7 +744,7 @@
     if(location.hash.includes('access_token')){
       gdHandleCallback();
       const btn=document.getElementById('gdLoginBtn');
-      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdDirty=true;gdSyncUp();};}
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
       document.getElementById('gdOverlay').classList.remove('open');
       gdSyncDown();
       return;
@@ -745,11 +752,14 @@
     // 저장된 토큰으로 복원
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
-      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdDirty=true;gdSyncUp();};}
-      // 처음 열릴 때: 다운로드만 / 새로고침: 업로드만
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
+      // 처음 열릴 때: 다운로드만 / 새로고침: 업로드 (강제)
       const navType = performance.getEntriesByType('navigation')[0]?.type
         || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
-      if(navType === 'reload') { gdSyncUpSync(); }
+      if(navType === 'reload') {
+        // 강제 업로드: dirty/syncing 플래그 무시하고 직접 실행
+        gdUpload();
+      }
       else gdSyncDown();
       return;
     }
@@ -2902,7 +2912,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   safe('gdLoginBtn', ()=>{
     if(window.gdToken){
       document.getElementById('gdOverlay').classList.remove('open');
-      window.gdDirty=true; window.gdSyncUp && window.gdSyncUp();
+      window.gdUpload && window.gdUpload();
     } else {
       try {
         if(!window.gdLogin){ alert('gdLogin 함수 없음'); return; }
