@@ -534,18 +534,24 @@
   function gdAutoLogin(cb) {
     if(typeof google === 'undefined' || !google.accounts) return;
     const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
-    if(!hint){ document.getElementById('gdOverlay').classList.add('open'); return; }
+    if(!hint){
+      // 첫 방문 — 팝업 표시
+      document.getElementById('gdOverlay').classList.add('open');
+      return;
+    }
+    // 힌트 있으면 팝업 절대 안 열고 조용히 시도
     google.accounts.oauth2.initTokenClient({
       client_id: GD_CLIENT_ID,
       scope: GD_SCOPE,
       login_hint: hint,
       callback: r => {
         if(r.error){
-          document.getElementById('gdOverlay').classList.add('open');
+          // 실패해도 팝업 안 열고 상태 아이콘만 표시
+          // 사용자가 직접 Drive 동기화 버튼 눌러서 로그인하도록
+          gdSetStatus('idle');
           return;
         }
         gdToken = r.access_token;
-        document.getElementById('gdOverlay').classList.remove('open');
         const btn = document.getElementById('gdLoginBtn');
         if(btn){
           btn.textContent = '🔄 동기화 재실행';
