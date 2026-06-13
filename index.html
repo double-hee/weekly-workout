@@ -24,8 +24,6 @@
     body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow-x:hidden;user-select:none;}
 
     /* Swipe */
-    /* Google One Tap 팝업 숨김 */
-    #credential_picker_container, #credential_picker_iframe{display:none !important;}
     .page-outer{overflow:hidden;width:100%;}
     /* Drive 동기화 */
     .gd-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0;max-width:860px;margin:0 auto;}
@@ -532,32 +530,7 @@
     }).requestAccessToken();
   }
 
-  // ── Google One Tap 자동 로그인 ──
-  function gdOneTap() {
-    if(typeof google === 'undefined' || !google.accounts) return;
-    google.accounts.id.initialize({
-      client_id: GD_CLIENT_ID,
-      callback: async (resp) => {
-        // One Tap 성공 → id_token으로 이메일 저장 후 OAuth 토큰 요청
-        try {
-          const p = JSON.parse(atob(resp.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-          if(p.email) _lsSet(GD_LOGIN_HINT_KEY, p.email);
-        } catch(e) {}
-        // 이메일 힌트로 OAuth 토큰 재요청 (Drive 접근용)
-        gdAutoLogin();
-      },
-      auto_select: true,        // 자동 선택
-      cancel_on_tap_outside: false,
-    });
-    google.accounts.id.prompt((notification) => {
-      if(notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap 불가 → 기존 자동 로그인 시도
-        gdAutoLogin();
-      }
-    });
-  }
-
-  // 자동 토큰 재요청 (계정 선택 화면 없이)
+  // ── Google One Tap 제거, 조용한 자동 로그인만 사용 ──
   function gdAutoLogin(cb) {
     if(typeof google === 'undefined' || !google.accounts) return;
     const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
@@ -817,10 +790,10 @@ ${jsonStr}
   window.showBigToast       = showBigToast;
   Object.defineProperty(window,'gdToken',{get:()=>gdToken});
 
-  // ── 페이지 로드 시 One Tap 또는 자동 로그인 시도 ──
+  // ── 페이지 로드 시 조용히 자동 로그인 ──
   window.addEventListener('DOMContentLoaded', ()=>{
     setTimeout(()=>{
-      gdOneTap(); // One Tap 먼저 시도, 실패 시 자동 로그인 or 팝업
+      gdAutoLogin();
     }, 300);
   });
   </script>
