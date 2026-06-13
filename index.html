@@ -749,7 +749,7 @@
       // 처음 열릴 때: 다운로드만 / 새로고침: 업로드만
       const navType = performance.getEntriesByType('navigation')[0]?.type
         || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
-      if(navType === 'reload') { gdDirty=true; gdSyncUp(); }
+      if(navType === 'reload') { gdSyncUpSync(); }
       else gdSyncDown();
       return;
     }
