@@ -511,15 +511,13 @@
       callback: r => {
         if(r.error){ gdSetStatus('error'); showBigToast('❌ 로그인 실패: '+r.error); return; }
         gdToken = r.access_token;
-        // 로그인 힌트 저장
-        if(r.hint) _lsSet(GD_LOGIN_HINT_KEY, r.hint);
-        else {
-          // hint가 없으면 id_token에서 이메일 추출 시도
-          try {
-            const payload = JSON.parse(atob(r.id_token.split('.')[1]));
-            if(payload.email) _lsSet(GD_LOGIN_HINT_KEY, payload.email);
-          } catch(e) {}
-        }
+        // 이메일 힌트 저장 — jwt decode
+        try {
+          if(r.id_token) {
+            const p = JSON.parse(atob(r.id_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+            if(p.email) _lsSet(GD_LOGIN_HINT_KEY, p.email);
+          }
+        } catch(e) {}
         document.getElementById('gdOverlay').classList.remove('open');
         const btn = document.getElementById('gdLoginBtn');
         if(btn){
@@ -532,24 +530,22 @@
     }).requestAccessToken();
   }
 
-  // 자동 토큰 재요청 (팝업 없이, 이전 로그인 계정 재사용)
+  // 자동 토큰 재요청 (계정 선택 화면 없이)
   function gdAutoLogin(cb) {
     if(typeof google === 'undefined' || !google.accounts) return;
     const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
+    if(!hint){ document.getElementById('gdOverlay').classList.add('open'); return; }
     google.accounts.oauth2.initTokenClient({
       client_id: GD_CLIENT_ID,
       scope: GD_SCOPE,
-      hint: hint || undefined,
-      prompt: '',  // 팝업 없이 시도
+      login_hint: hint,
       callback: r => {
         if(r.error){
-          // 자동 로그인 실패 → 팝업 표시
+          // 자동 실패 → 로그인 팝업
           document.getElementById('gdOverlay').classList.add('open');
           return;
         }
         gdToken = r.access_token;
-        // 로그인 힌트 저장 (다음 자동 로그인용)
-        if(r.hint) _lsSet(GD_LOGIN_HINT_KEY, r.hint);
         document.getElementById('gdOverlay').classList.remove('open');
         const btn = document.getElementById('gdLoginBtn');
         if(btn){
@@ -559,7 +555,7 @@
         if(cb) cb();
         else gdSyncDown();
       }
-    }).requestAccessToken({prompt:''});
+    }).requestAccessToken({prompt: 'none'});
   }
 
   // ── Drive API 헬퍼 (keepalive 옵션 지원) ──
