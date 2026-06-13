@@ -793,12 +793,32 @@ ${jsonStr}
   // ── 페이지 로드 시 조용히 자동 로그인 ──
   window.addEventListener('DOMContentLoaded', ()=>{
     setTimeout(()=>{
+      const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
+      if(hint){
+        // 이전 로그인 기록 있으면 팝업 숨기고 조용히 시도
+        document.getElementById('gdOverlay').classList.remove('open');
+      }
       gdAutoLogin();
     }, 300);
   });
   </script>
 </head>
 <body>
+<!-- 로그인 힌트 있으면 팝업이 절대 안 뜨도록 즉시 처리 -->
+<script>
+(function(){
+  // DOMContentLoaded 전에 실행 — gdOverlay가 아직 없으므로 MutationObserver 사용
+  const hint = localStorage.getItem('gd_login_hint');
+  if(hint){
+    // DOM 생성되는 순간 overlay의 open 클래스를 막음
+    const obs = new MutationObserver(()=>{
+      const el = document.getElementById('gdOverlay');
+      if(el){ el.classList.remove('open'); obs.disconnect(); }
+    });
+    obs.observe(document.documentElement, {childList:true, subtree:true});
+  }
+})();
+</script>
 
 <!-- Drive 동기화 바 -->
 <div class="gd-bar">
