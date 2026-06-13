@@ -613,7 +613,12 @@
       Object.entries(data).forEach(([k,v])=>_lsSet(k,v));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
-      if(window.renderSlides) window.renderSlides();
+      // 메인 스크립트 로드 완료 후 화면 갱신
+      if(document.readyState === 'complete'){
+        if(window.renderSlides) window.renderSlides();
+      } else {
+        window.addEventListener('load', ()=>{ if(window.renderSlides) window.renderSlides(); }, {once:true});
+      }
     } catch(e){gdSetStatus('error');}
     gdSyncing=false;
   }
@@ -754,7 +759,7 @@ ${jsonStr}
   Object.defineProperty(window,'gdToken',{get:()=>gdToken});
 
   // ── 페이지 로드 ──
-  window.addEventListener('DOMContentLoaded',()=>{
+  window.addEventListener('load',()=>{
     // OAuth 리디렉션 후 토큰 처리
     if(location.hash.includes('access_token')){
       gdHandleCallback();
