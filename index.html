@@ -466,7 +466,7 @@
   const GD_SYNC_TS    = 'gd_last_sync_ts';
   const GD_TOKEN_KEY  = 'gd_token';
   const GD_TOKEN_EXP  = 'gd_token_exp';
-  const GD_LOGIN_HINT = 'gd_login_hint';
+  const GD_REDIRECT = 'https://double-hee.github.io/weekly-workout/';
   const SYNC_KEYS = [
     'workout_notes_v4','workout_actual_v4','workout_custom_v4',
     'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
@@ -505,10 +505,9 @@
     // iframe으로 조용히 갱신 시도
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
-    const redirect = location.href.split('?')[0].split('#')[0];
     iframe.src = `https://accounts.google.com/o/oauth2/v2/auth`
       + `?client_id=${GD_CLIENT_ID}`
-      + `&redirect_uri=${encodeURIComponent(redirect)}`
+      + `&redirect_uri=${encodeURIComponent(GD_REDIRECT)}`
       + `&response_type=token`
       + `&scope=${encodeURIComponent(GD_SCOPE)}`
       + `&login_hint=${encodeURIComponent(hint)}`
@@ -521,11 +520,10 @@
   // ── OAuth 로그인 (리디렉션) ──
   function gdLogin(cb) {
     if(cb) sessionStorage.setItem('gd_cb', cb.name||'sync');
-    const redirect = location.href.split('?')[0].split('#')[0];
     const hint = localStorage.getItem(GD_LOGIN_HINT)||'';
     location.href = `https://accounts.google.com/o/oauth2/v2/auth`
       + `?client_id=${GD_CLIENT_ID}`
-      + `&redirect_uri=${encodeURIComponent(redirect)}`
+      + `&redirect_uri=${encodeURIComponent(GD_REDIRECT)}`
       + `&response_type=token`
       + `&scope=${encodeURIComponent(GD_SCOPE)}`
       + (hint ? `&login_hint=${encodeURIComponent(hint)}` : '')
