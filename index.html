@@ -568,7 +568,9 @@
   async function gdFindFile(name) {
     const r = await gdFetch(`drive/v3/files?spaces=appDataFolder&q=name='${name}'&fields=files(id,modifiedTime)`);
     const d = await r.json();
-    return d.files&&d.files[0] ? d.files[0] : null;
+    const file = d.files&&d.files[0] ? d.files[0] : null;
+    if(file && name===GD_DATA_FILE) _lsSet('gd_file_id', file.id); // ID 캐시
+    return file;
   }
   async function gdWriteFile(name, jsonStr) {
     const existing = await gdFindFile(name);
@@ -577,8 +579,10 @@
     const meta = JSON.stringify({name,parents:['appDataFolder']});
     const b = '--gdbound';
     const body = `\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
-    return gdFetch('upload/drive/v3/files?uploadType=multipart',
+    const res = await gdFetch('upload/drive/v3/files?uploadType=multipart&fields=id',
       {method:'POST',headers:{'Content-Type':`multipart/related; boundary="${b}"`},body});
+    if(res.ok){ const d=await res.json(); if(d.id) _lsSet('gd_file_id',d.id); } // 신규 생성 시 ID 캐시
+    return res;
   }
 
   // ── XHR (진행률) ──
@@ -639,34 +643,45 @@
     if(gdToken && SYNC_KEYS.includes(k)) {
       gdDirty=true;
       clearTimeout(gdSaveTimer);
-      gdSaveTimer = setTimeout(gdSyncUp, 5000);
+      gdSaveTimer = setTimeout(gdSyncUp, 2000);
     }
   };
 
-  // ── 페이지 닫힘 시 keepalive 업로드 ──
+  // ── 페이지 닫힘/종료 시 keepalive 업로드 (항상 실행) ──
   function gdSyncUpSync() {
     if(!gdToken) return;
+    clearTimeout(gdSaveTimer); // 예약된 업로드 취소 (중복 방지)
     gdDirty=false;
     try {
       const payload={};
       SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)payload[k]=v;});
       const jsonStr=JSON.stringify(payload);
-      gdFindFile(GD_DATA_FILE).then(existing=>{
-        if(existing) fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+      // fileId가 이미 캐시돼 있으면 바로 업로드, 없으면 multipart로 신규 생성
+      const cachedId=localStorage.getItem('gd_file_id');
+      if(cachedId){
+        fetch(`https://www.googleapis.com/upload/drive/v3/files/${cachedId}?uploadType=media`,
           {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
-        else {
-          const meta=JSON.stringify({name:GD_DATA_FILE,parents:['appDataFolder']});
-          const b='--gdbound';
-          const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
-          fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-            {method:'POST',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body});
-        }
-        _lsSet(GD_SYNC_TS, String(Date.now()));
-      });
-    } catch(e){gdDirty=true;}
+      } else {
+        const meta=JSON.stringify({name:GD_DATA_FILE,parents:['appDataFolder']});
+        const b='--gdbound';
+        const body=`
+--${b}
+Content-Type: application/json
+
+${meta}
+--${b}
+Content-Type: application/json
+
+${jsonStr}
+--${b}--`;
+        fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+          {method:'POST',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body});
+      }
+    } catch(e){}
   }
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')gdSyncUpSync();});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden') gdSyncUpSync();});
   window.addEventListener('pagehide', gdSyncUpSync);
+  window.addEventListener('beforeunload', gdSyncUpSync);
 
   // ── 사진 업로드/다운로드 ──
   async function gdUploadAllPhotos() {
@@ -753,14 +768,10 @@
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      // 처음 열릴 때: 다운로드만 / 새로고침: 업로드 (강제)
+      // 처음 열릴 때만 다운로드, 새로고침은 동기화 안 함
       const navType = performance.getEntriesByType('navigation')[0]?.type
         || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
-      if(navType === 'reload') {
-        // 강제 업로드: dirty/syncing 플래그 무시하고 직접 실행
-        gdUpload();
-      }
-      else gdSyncDown();
+      if(navType !== 'reload') gdSyncDown();
       return;
     }
     // 토큰 없으면 로그인 팝업
