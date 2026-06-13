@@ -770,7 +770,12 @@ ${jsonStr}
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      gdSyncDown(true); // 항상 다운로드
+      // sessionStorage로 처음 열기 vs 새로고침 구분
+      // 처음 열기: sessionStorage 키 없음 → 다운로드 후 키 설정
+      // 새로고침: sessionStorage 키 있음 → 다운로드 스킵
+      const isFirstOpen = !sessionStorage.getItem('gd_session');
+      sessionStorage.setItem('gd_session', '1');
+      if(isFirstOpen) gdSyncDown(true); // 처음 열릴 때만 다운로드
       return;
     }
     // 토큰 없으면 로그인 팝업
