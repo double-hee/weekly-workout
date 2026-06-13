@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>이번 주 운동 일정</title>
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="운동일정">
+  <meta name="theme-color" content="#0D1810">
+  <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -491,6 +498,8 @@
   }
 
   // ── 토큰 요청 (팝업) ──
+  const GD_LOGIN_HINT_KEY = 'gd_login_hint';
+
   function gdLogin(cb) {
     if(typeof google === 'undefined' || !google.accounts){
       showBigToast('⚠️ Google 로그인 준비 중입니다. 잠시 후 다시 시도해주세요.');
@@ -502,8 +511,16 @@
       callback: r => {
         if(r.error){ gdSetStatus('error'); showBigToast('❌ 로그인 실패: '+r.error); return; }
         gdToken = r.access_token;
+        // 로그인 힌트 저장
+        if(r.hint) _lsSet(GD_LOGIN_HINT_KEY, r.hint);
+        else {
+          // hint가 없으면 id_token에서 이메일 추출 시도
+          try {
+            const payload = JSON.parse(atob(r.id_token.split('.')[1]));
+            if(payload.email) _lsSet(GD_LOGIN_HINT_KEY, payload.email);
+          } catch(e) {}
+        }
         document.getElementById('gdOverlay').classList.remove('open');
-        // 로그인 버튼 → 재동기화 버튼으로 교체
         const btn = document.getElementById('gdLoginBtn');
         if(btn){
           btn.textContent = '🔄 동기화 재실행';
@@ -513,6 +530,36 @@
         else gdSyncDown();
       }
     }).requestAccessToken();
+  }
+
+  // 자동 토큰 재요청 (팝업 없이, 이전 로그인 계정 재사용)
+  function gdAutoLogin(cb) {
+    if(typeof google === 'undefined' || !google.accounts) return;
+    const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
+    google.accounts.oauth2.initTokenClient({
+      client_id: GD_CLIENT_ID,
+      scope: GD_SCOPE,
+      hint: hint || undefined,
+      prompt: '',  // 팝업 없이 시도
+      callback: r => {
+        if(r.error){
+          // 자동 로그인 실패 → 팝업 표시
+          document.getElementById('gdOverlay').classList.add('open');
+          return;
+        }
+        gdToken = r.access_token;
+        // 로그인 힌트 저장 (다음 자동 로그인용)
+        if(r.hint) _lsSet(GD_LOGIN_HINT_KEY, r.hint);
+        document.getElementById('gdOverlay').classList.remove('open');
+        const btn = document.getElementById('gdLoginBtn');
+        if(btn){
+          btn.textContent = '🔄 동기화 재실행';
+          btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
+        }
+        if(cb) cb();
+        else gdSyncDown();
+      }
+    }).requestAccessToken({prompt:''});
   }
 
   // ── Drive API 헬퍼 (keepalive 옵션 지원) ──
@@ -748,11 +795,17 @@ ${jsonStr}
   window.showBigToast       = showBigToast;
   Object.defineProperty(window,'gdToken',{get:()=>gdToken});
 
-  // ── 페이지 로드 시 로그인 팝업 자동 표시 ──
+  // ── 페이지 로드 시 자동 로그인 또는 팝업 표시 ──
   window.addEventListener('DOMContentLoaded', ()=>{
-    // GSI는 sync로 로드되므로 바로 팝업 표시
     setTimeout(()=>{
-      document.getElementById('gdOverlay').classList.add('open');
+      const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
+      if(hint){
+        // 이전 로그인 기록 있으면 자동 토큰 재요청
+        gdAutoLogin();
+      } else {
+        // 첫 방문이면 로그인 팝업 표시
+        document.getElementById('gdOverlay').classList.add('open');
+      }
     }, 300);
   });
   </script>
