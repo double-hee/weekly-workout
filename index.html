@@ -521,13 +521,15 @@
   function gdLogin(cb) {
     if(cb) sessionStorage.setItem('gd_cb', cb.name||'sync');
     const hint = localStorage.getItem(GD_LOGIN_HINT)||'';
-    location.href = `https://accounts.google.com/o/oauth2/v2/auth`
+    const url = `https://accounts.google.com/o/oauth2/v2/auth`
       + `?client_id=${GD_CLIENT_ID}`
       + `&redirect_uri=${encodeURIComponent(GD_REDIRECT)}`
       + `&response_type=token`
       + `&scope=${encodeURIComponent(GD_SCOPE)}`
       + (hint ? `&login_hint=${encodeURIComponent(hint)}` : '')
       + `&prompt=consent`;
+    // PWA standalone 모드에서도 작동하도록
+    window.location.href = url;
   }
 
   // ── OAuth 콜백 처리 (URL 해시) ──
@@ -2889,11 +2891,15 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   safe('gdCloseBtn',        ()=>overlay.classList.remove('open'));
   safe('gdLoginBtn', ()=>{
     if(window.gdToken){
-      // 이미 로그인 → 재동기화
       document.getElementById('gdOverlay').classList.remove('open');
       window.gdSyncDown && window.gdSyncDown();
     } else {
-      window.gdLogin && window.gdLogin();
+      try {
+        if(!window.gdLogin){ alert('gdLogin 함수 없음'); return; }
+        window.gdLogin();
+      } catch(e) {
+        alert('로그인 오류: ' + e.message);
+      }
     }
   });
   safe('gdPhotoUploadBtn',  ()=>{ overlay.classList.remove('open'); window.gdUploadAllPhotos && window.gdUploadAllPhotos(); });
