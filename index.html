@@ -641,7 +641,7 @@
 
   // ── 페이지 닫힘 시 keepalive 업로드 ──
   function gdSyncUpSync() {
-    if(!gdToken||!gdDirty) return;
+    if(!gdToken) return;
     gdDirty=false;
     try {
       const payload={};
@@ -720,9 +720,9 @@
 
   // 업로드 후 다운로드 (동기화 재실행용)
   async function gdSyncUpThenDown() {
-    gdDirty = true; // 강제로 업로드
-    await gdSyncUp();
-    await gdSyncDown();
+    gdDirty = true;
+    await gdSyncUp();   // 먼저 업로드
+    await gdSyncDown(); // 그 다음 다운로드
   }
   window.gdSyncUpThenDown = gdSyncUpThenDown;
   window.gdUploadAllPhotos=gdUploadAllPhotos;
@@ -749,7 +749,11 @@
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdDirty=true;gdSyncUp();};}
-      gdSyncDown();
+      // 처음 열릴 때: 다운로드만 / 새로고침: 업로드만
+      const navType = performance.getEntriesByType('navigation')[0]?.type
+        || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
+      if(navType === 'reload') { gdDirty=true; gdSyncUp(); }
+      else gdSyncDown();
       return;
     }
     // 토큰 없으면 로그인 팝업
