@@ -607,6 +607,10 @@
     try {
       const file = await gdFindFile(GD_DATA_FILE);
       if(!file){gdSetStatus('ok');gdSyncing=false;return;}
+      // 수정시간 비교 — Drive가 더 최신일 때만 다운로드
+      const driveTs = new Date(file.modifiedTime).getTime();
+      const localTs = parseInt(localStorage.getItem(GD_SYNC_TS)||'0');
+      if(driveTs <= localTs){gdSetStatus('ok');gdSyncing=false;return;}
       const r = await gdFetch(`drive/v3/files/${file.id}?alt=media`);
       if(!r.ok){gdSetStatus('error');gdSyncing=false;return;}
       const data = await r.json();
