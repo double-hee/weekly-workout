@@ -717,6 +717,14 @@
   // window exports
   window.gdLogin=gdLogin;
   window.gdSyncDown=gdSyncDown;
+
+  // 업로드 후 다운로드 (동기화 재실행용)
+  async function gdSyncUpThenDown() {
+    gdDirty = true; // 강제로 업로드
+    await gdSyncUp();
+    await gdSyncDown();
+  }
+  window.gdSyncUpThenDown = gdSyncUpThenDown;
   window.gdUploadAllPhotos=gdUploadAllPhotos;
   window.gdDownloadAllPhotos=gdDownloadAllPhotos;
   window.gdSetStatus=gdSetStatus;
@@ -732,7 +740,7 @@
     if(location.hash.includes('access_token')){
       gdHandleCallback();
       const btn=document.getElementById('gdLoginBtn');
-      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdSyncDown();};}
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdDirty=true;gdSyncUp();};}
       document.getElementById('gdOverlay').classList.remove('open');
       gdSyncDown();
       return;
@@ -740,7 +748,7 @@
     // 저장된 토큰으로 복원
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
-      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdSyncDown();};}
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdDirty=true;gdSyncUp();};}
       gdSyncDown();
       return;
     }
@@ -2893,7 +2901,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   safe('gdLoginBtn', ()=>{
     if(window.gdToken){
       document.getElementById('gdOverlay').classList.remove('open');
-      window.gdSyncDown && window.gdSyncDown();
+      window.gdDirty=true; window.gdSyncUp && window.gdSyncUp();
     } else {
       try {
         if(!window.gdLogin){ alert('gdLogin 함수 없음'); return; }
