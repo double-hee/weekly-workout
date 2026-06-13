@@ -531,36 +531,42 @@
   }
 
   // ── Google One Tap 제거, 조용한 자동 로그인만 사용 ──
+  let gdTokenExpiry = 0; // 토큰 만료 시각 (ms)
+
   function gdAutoLogin(cb) {
     if(typeof google === 'undefined' || !google.accounts) return;
     const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
     if(!hint){
-      // 첫 방문 — 팝업 표시
       document.getElementById('gdOverlay').classList.add('open');
       return;
     }
-    // 힌트 있으면 팝업 절대 안 열고 조용히 시도
-    google.accounts.oauth2.initTokenClient({
-      client_id: GD_CLIENT_ID,
-      scope: GD_SCOPE,
-      login_hint: hint,
-      callback: r => {
-        if(r.error){
-          // 실패해도 팝업 안 열고 상태 아이콘만 표시
-          // 사용자가 직접 Drive 동기화 버튼 눌러서 로그인하도록
-          gdSetStatus('idle');
-          return;
+    // 토큰 아직 유효하면 바로 콜백
+    if(gdToken && Date.now() < gdTokenExpiry - 60000){
+      if(cb) cb(); else gdSyncDown();
+      return;
+    }
+    // prompt 없이 — 팝업 안 뜨는 방식
+    // 실패해도 팝업 절대 안 열음
+    try {
+      google.accounts.oauth2.initTokenClient({
+        client_id: GD_CLIENT_ID,
+        scope: GD_SCOPE,
+        login_hint: hint,
+        callback: r => {
+          if(r.error){ gdSetStatus('idle'); return; }
+          gdToken = r.access_token;
+          gdTokenExpiry = Date.now() + (r.expires_in || 3600) * 1000;
+          // 만료 5분 전 자동 갱신 예약
+          setTimeout(()=>gdAutoLogin(), (r.expires_in||3600)*1000 - 300000);
+          const btn = document.getElementById('gdLoginBtn');
+          if(btn){
+            btn.textContent = '🔄 동기화 재실행';
+            btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
+          }
+          if(cb) cb(); else gdSyncDown();
         }
-        gdToken = r.access_token;
-        const btn = document.getElementById('gdLoginBtn');
-        if(btn){
-          btn.textContent = '🔄 동기화 재실행';
-          btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
-        }
-        if(cb) cb();
-        else gdSyncDown();
-      }
-    }).requestAccessToken({prompt: 'none'});
+      }).requestAccessToken({prompt: 'none'});
+    } catch(e){ gdSetStatus('idle'); }
   }
 
   // ── Drive API 헬퍼 (keepalive 옵션 지원) ──
