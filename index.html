@@ -458,15 +458,16 @@
     .picker-done-golf{background:var(--lime);color:var(--bg);}
     .picker-done-run{background:var(--sky);color:var(--bg);}
   </style>
-  <!-- Google Drive API -->
-  <script src="https://accounts.google.com/gsi/client"></script>
+  <!-- Google Drive API (리디렉션 방식 — 팝업 없음) -->
   <script>
-  // ══ GOOGLE DRIVE 동기화 ══
-  const GD_CLIENT_ID = '1066596069648-1l0tl9n9g20ch87f065f0l6f870ng3tb.apps.googleusercontent.com';
-  const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.appdata';
-  const GD_DATA_FILE = 'workout-data.json';
-  const GD_SYNC_TS   = 'gd_last_sync_ts';
-  const SYNC_KEYS    = [
+  const GD_CLIENT_ID  = '1066596069648-1l0tl9n9g20ch87f065f0l6f870ng3tb.apps.googleusercontent.com';
+  const GD_SCOPE      = 'https://www.googleapis.com/auth/drive.appdata';
+  const GD_DATA_FILE  = 'workout-data.json';
+  const GD_SYNC_TS    = 'gd_last_sync_ts';
+  const GD_TOKEN_KEY  = 'gd_token';
+  const GD_TOKEN_EXP  = 'gd_token_exp';
+  const GD_LOGIN_HINT = 'gd_login_hint';
+  const SYNC_KEYS = [
     'workout_notes_v4','workout_actual_v4','workout_custom_v4',
     'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
     'workout_removed_v1','workout_tab_order_v1','workout_routine_v2',
@@ -477,361 +478,277 @@
   let gdDirty = false;
   let gdSaveTimer = null;
   let gdSyncing = false;
+  const _lsSet = localStorage.setItem.bind(localStorage);
+
+  // ── 토큰 복원 ──
+  function gdRestoreToken() {
+    const token = localStorage.getItem(GD_TOKEN_KEY);
+    const exp   = parseInt(localStorage.getItem(GD_TOKEN_EXP)||'0');
+    if(token && Date.now() < exp - 60000) { gdToken = token; return true; }
+    return false;
+  }
+
+  // ── 토큰 저장 ──
+  function gdSaveToken(token, expiresIn) {
+    gdToken = token;
+    const exp = Date.now() + (expiresIn||3600)*1000;
+    _lsSet(GD_TOKEN_KEY, token);
+    _lsSet(GD_TOKEN_EXP, String(exp));
+    // 만료 5분 전 자동 재로그인
+    setTimeout(gdRefreshToken, (expiresIn||3600)*1000 - 300000);
+  }
+
+  // ── 조용한 토큰 갱신 (페이지 이동 없이) ──
+  function gdRefreshToken() {
+    const hint = localStorage.getItem(GD_LOGIN_HINT);
+    if(!hint) return;
+    // iframe으로 조용히 갱신 시도
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    const redirect = location.href.split('?')[0].split('#')[0];
+    iframe.src = `https://accounts.google.com/o/oauth2/v2/auth`
+      + `?client_id=${GD_CLIENT_ID}`
+      + `&redirect_uri=${encodeURIComponent(redirect)}`
+      + `&response_type=token`
+      + `&scope=${encodeURIComponent(GD_SCOPE)}`
+      + `&login_hint=${encodeURIComponent(hint)}`
+      + `&prompt=none`;
+    document.body.appendChild(iframe);
+    // 10초 후 iframe 제거
+    setTimeout(() => iframe.remove(), 10000);
+  }
+
+  // ── OAuth 로그인 (리디렉션) ──
+  function gdLogin(cb) {
+    if(cb) sessionStorage.setItem('gd_cb', cb.name||'sync');
+    const redirect = location.href.split('?')[0].split('#')[0];
+    const hint = localStorage.getItem(GD_LOGIN_HINT)||'';
+    location.href = `https://accounts.google.com/o/oauth2/v2/auth`
+      + `?client_id=${GD_CLIENT_ID}`
+      + `&redirect_uri=${encodeURIComponent(redirect)}`
+      + `&response_type=token`
+      + `&scope=${encodeURIComponent(GD_SCOPE)}`
+      + (hint ? `&login_hint=${encodeURIComponent(hint)}` : '')
+      + `&prompt=consent`;
+  }
+
+  // ── OAuth 콜백 처리 (URL 해시) ──
+  function gdHandleCallback() {
+    const hash = location.hash.substring(1);
+    if(!hash.includes('access_token')) return false;
+    const params = Object.fromEntries(hash.split('&').map(p=>p.split('=')));
+    if(!params.access_token) return false;
+    gdSaveToken(decodeURIComponent(params.access_token), parseInt(params.expires_in||3600));
+    history.replaceState(null,'', location.pathname);
+    return true;
+  }
 
   // ── 상태 아이콘 ──
   let gdStatusTimer = null;
   function gdSetStatus(s) {
     const icon = document.getElementById('gdStatusIcon');
     const text = document.getElementById('gdStatusText');
-    if (!icon) return;
+    if(!icon) return;
     clearTimeout(gdStatusTimer);
-    const map = {
-      syncing: ['🔄','gd-spin','동기화 중...'],
-      ok:      ['✅','','동기화 완료'],
-      error:   ['❌','','동기화 실패'],
-      idle:    ['☁️','','Drive 동기화'],
-    };
+    const map = {syncing:['🔄','gd-spin','동기화 중...'],ok:['✅','','동기화 완료'],error:['❌','','동기화 실패'],idle:['☁️','','Drive 동기화']};
     const [ic,cls,tx] = map[s]||map.idle;
     icon.textContent=ic; icon.className=cls; text.textContent=tx;
-    if(s==='ok')   gdStatusTimer=setTimeout(()=>gdSetStatus('idle'),3000);
-    if(s==='error') gdStatusTimer=setTimeout(()=>gdSetStatus('idle'),5000);
+    if(s==='ok')    gdStatusTimer = setTimeout(()=>gdSetStatus('idle'), 3000);
+    if(s==='error') gdStatusTimer = setTimeout(()=>gdSetStatus('idle'), 5000);
   }
 
-  // ── 토큰 요청 (팝업) ──
-  const GD_LOGIN_HINT_KEY = 'gd_login_hint';
-
-  function gdLogin(cb) {
-    if(typeof google === 'undefined' || !google.accounts){
-      showBigToast('⚠️ Google 로그인 준비 중입니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
-    google.accounts.oauth2.initTokenClient({
-      client_id: GD_CLIENT_ID,
-      scope: GD_SCOPE,
-      callback: r => {
-        if(r.error){ gdSetStatus('error'); showBigToast('❌ 로그인 실패: '+r.error); return; }
-        gdToken = r.access_token;
-        // 이메일 힌트 저장 — jwt decode
-        try {
-          if(r.id_token) {
-            const p = JSON.parse(atob(r.id_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-            if(p.email) _lsSet(GD_LOGIN_HINT_KEY, p.email);
-          }
-        } catch(e) {}
-        document.getElementById('gdOverlay').classList.remove('open');
-        const btn = document.getElementById('gdLoginBtn');
-        if(btn){
-          btn.textContent = '🔄 동기화 재실행';
-          btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
-        }
-        if(cb) cb();
-        else gdSyncDown();
-      }
-    }).requestAccessToken();
-  }
-
-  // ── Google One Tap 제거, 조용한 자동 로그인만 사용 ──
-  let gdTokenExpiry = 0; // 토큰 만료 시각 (ms)
-
-  function gdAutoLogin(cb) {
-    if(typeof google === 'undefined' || !google.accounts) return;
-    const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
-    if(!hint){
-      document.getElementById('gdOverlay').classList.add('open');
-      return;
-    }
-    // 토큰 아직 유효하면 바로 콜백
-    if(gdToken && Date.now() < gdTokenExpiry - 60000){
-      if(cb) cb(); else gdSyncDown();
-      return;
-    }
-    // prompt 없이 — 팝업 안 뜨는 방식
-    // 실패해도 팝업 절대 안 열음
-    try {
-      google.accounts.oauth2.initTokenClient({
-        client_id: GD_CLIENT_ID,
-        scope: GD_SCOPE,
-        login_hint: hint,
-        callback: r => {
-          if(r.error){ gdSetStatus('idle'); return; }
-          gdToken = r.access_token;
-          gdTokenExpiry = Date.now() + (r.expires_in || 3600) * 1000;
-          // 만료 5분 전 자동 갱신 예약
-          setTimeout(()=>gdAutoLogin(), (r.expires_in||3600)*1000 - 300000);
-          const btn = document.getElementById('gdLoginBtn');
-          if(btn){
-            btn.textContent = '🔄 동기화 재실행';
-            btn.onclick = ()=>{ document.getElementById('gdOverlay').classList.remove('open'); gdSyncDown(); };
-          }
-          if(cb) cb(); else gdSyncDown();
-        }
-      }).requestAccessToken({prompt: 'none'});
-    } catch(e){ gdSetStatus('idle'); }
-  }
-
-  // ── Drive API 헬퍼 (keepalive 옵션 지원) ──
+  // ── Drive API 헬퍼 ──
   async function gdFetch(path, opts={}) {
-    const res = await fetch('https://www.googleapis.com/'+path, {
-      ...opts,
-      keepalive: true, // 페이지 닫힐 때도 요청 완료
-      headers: { Authorization:'Bearer '+gdToken, ...(opts.headers||{}) }
+    return fetch('https://www.googleapis.com/'+path, {
+      ...opts, keepalive:true,
+      headers:{Authorization:'Bearer '+gdToken,...(opts.headers||{})}
     });
-    return res;
   }
-
   async function gdFindFile(name) {
     const r = await gdFetch(`drive/v3/files?spaces=appDataFolder&q=name='${name}'&fields=files(id,modifiedTime)`);
     const d = await r.json();
-    return d.files && d.files[0] ? d.files[0] : null;
+    return d.files&&d.files[0] ? d.files[0] : null;
   }
-
   async function gdWriteFile(name, jsonStr) {
     const existing = await gdFindFile(name);
-    if(existing) {
-      return gdFetch(`upload/drive/v3/files/${existing.id}?uploadType=media`,
-        {method:'PATCH', headers:{'Content-Type':'application/json'}, body:jsonStr});
-    }
-    const meta = JSON.stringify({name, parents:['appDataFolder']});
+    if(existing) return gdFetch(`upload/drive/v3/files/${existing.id}?uploadType=media`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},body:jsonStr});
+    const meta = JSON.stringify({name,parents:['appDataFolder']});
     const b = '--gdbound';
-    const body = `
---${b}
-Content-Type: application/json
-
-${meta}
---${b}
-Content-Type: application/json
-
-${jsonStr}
---${b}--`;
+    const body = `\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
     return gdFetch('upload/drive/v3/files?uploadType=multipart',
-      {method:'POST', headers:{'Content-Type':`multipart/related; boundary="${b}"`}, body});
+      {method:'POST',headers:{'Content-Type':`multipart/related; boundary="${b}"`},body});
   }
 
   // ── XHR (진행률) ──
   function xhrReq(method, url, headers, body) {
-    return new Promise((res,rej)=>{
-      const xhr=new XMLHttpRequest();
+    return new Promise((res,rej) => {
+      const xhr = new XMLHttpRequest();
       xhr.open(method, url);
       Object.entries(headers).forEach(([k,v])=>xhr.setRequestHeader(k,v));
-      xhr.responseType='text';
-      if(method==='GET') xhr.onprogress=e=>{ if(e.lengthComputable) setProgress(e.loaded/e.total*100); };
-      else if(xhr.upload) xhr.upload.onprogress=e=>{ if(e.lengthComputable) setProgress(e.loaded/e.total*100); };
-      xhr.onload=()=>res({ok:xhr.status>=200&&xhr.status<300,status:xhr.status,text:xhr.responseText});
-      xhr.onerror=()=>rej(new Error('Network error'));
+      xhr.responseType = 'text';
+      if(method==='GET') xhr.onprogress = e=>{if(e.lengthComputable)setProgress(e.loaded/e.total*100);};
+      else if(xhr.upload) xhr.upload.onprogress = e=>{if(e.lengthComputable)setProgress(e.loaded/e.total*100);};
+      xhr.onload = ()=>res({ok:xhr.status>=200&&xhr.status<300,status:xhr.status,text:xhr.responseText});
+      xhr.onerror = ()=>rej(new Error('Network error'));
       xhr.send(body||null);
     });
   }
 
-  // ── 자동 동기화: 다운로드 ──
+  // ── 자동 동기화 ──
   async function gdSyncDown() {
-    if(!gdToken || gdSyncing) return;
-    gdSyncing=true;
-    gdSetStatus('syncing');
+    if(!gdToken||gdSyncing) return;
+    gdSyncing=true; gdSetStatus('syncing');
     try {
       const file = await gdFindFile(GD_DATA_FILE);
-      if(!file){ gdSetStatus('ok'); gdSyncing=false; return; }
-      // 수정시간 비교로 스킵 여부 결정
+      if(!file){gdSetStatus('ok');gdSyncing=false;return;}
       const driveTs = new Date(file.modifiedTime).getTime();
       const localTs = parseInt(localStorage.getItem(GD_SYNC_TS)||'0');
-      if(driveTs <= localTs){ gdSetStatus('ok'); gdSyncing=false; return; }
+      if(driveTs<=localTs){gdSetStatus('ok');gdSyncing=false;return;}
       const r = await gdFetch(`drive/v3/files/${file.id}?alt=media`);
-      if(!r.ok){ gdSetStatus('error'); gdSyncing=false; return; }
+      if(!r.ok){gdSetStatus('error');gdSyncing=false;return;}
       const data = await r.json();
-      // 다운로드 데이터는 dirty 유발 안 하도록 원본 setItem 사용
       Object.entries(data).forEach(([k,v])=>_lsSet(k,v));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
       if(window.renderSlides) window.renderSlides();
-    } catch(e){ gdSetStatus('error'); }
+    } catch(e){gdSetStatus('error');}
     gdSyncing=false;
   }
-
-  // ── 자동 동기화: 업로드 ──
   async function gdSyncUp() {
-    if(!gdToken || !gdDirty || gdSyncing) return;
-    gdDirty=false;
-    gdSyncing=true;
-    gdSetStatus('syncing');
+    if(!gdToken||!gdDirty||gdSyncing) return;
+    gdDirty=false; gdSyncing=true; gdSetStatus('syncing');
     try {
       const payload={};
-      SYNC_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v) payload[k]=v; });
+      SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)payload[k]=v;});
       await gdWriteFile(GD_DATA_FILE, JSON.stringify(payload));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
-    } catch(e){ gdDirty=true; gdSetStatus('error'); }
+    } catch(e){gdDirty=true;gdSetStatus('error');}
     gdSyncing=false;
   }
 
-  // ── localStorage 오버라이드 (dirty 감지) ──
-  // 원본 저장
-  const _lsSet = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(k,v){
+  // ── localStorage dirty 감지 ──
+  localStorage.setItem = function(k,v) {
     _lsSet(k,v);
-    if(gdToken && SYNC_KEYS.includes(k)){
+    if(gdToken && SYNC_KEYS.includes(k)) {
       gdDirty=true;
       clearTimeout(gdSaveTimer);
-      gdSaveTimer=setTimeout(gdSyncUp, 5000); // 5초 debounce
+      gdSaveTimer = setTimeout(gdSyncUp, 5000);
     }
   };
 
-  // 페이지 숨김/닫힘 시 즉시 업로드 (keepalive)
+  // ── 페이지 닫힘 시 keepalive 업로드 ──
   function gdSyncUpSync() {
-    if(!gdToken || !gdDirty) return;
-    gdDirty = false;
+    if(!gdToken||!gdDirty) return;
+    gdDirty=false;
     try {
       const payload={};
-      SYNC_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v) payload[k]=v; });
-      const jsonStr = JSON.stringify(payload);
-      // keepalive fetch — 페이지 닫혀도 완료됨
-      gdFindFile(GD_DATA_FILE).then(existing => {
-        if(existing){
-          fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
-            { method:'PATCH', keepalive:true,
-              headers:{ Authorization:'Bearer '+gdToken, 'Content-Type':'application/json' },
-              body: jsonStr });
-        } else {
+      SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)payload[k]=v;});
+      const jsonStr=JSON.stringify(payload);
+      gdFindFile(GD_DATA_FILE).then(existing=>{
+        if(existing) fetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
+          {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
+        else {
           const meta=JSON.stringify({name:GD_DATA_FILE,parents:['appDataFolder']});
           const b='--gdbound';
           const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
           fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-            { method:'POST', keepalive:true,
-              headers:{ Authorization:'Bearer '+gdToken, 'Content-Type':`multipart/related; boundary="${b}"` },
-              body });
+            {method:'POST',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body});
         }
         _lsSet(GD_SYNC_TS, String(Date.now()));
       });
-    } catch(e) { gdDirty=true; }
+    } catch(e){gdDirty=true;}
   }
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') gdSyncUpSync(); });
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')gdSyncUpSync();});
   window.addEventListener('pagehide', gdSyncUpSync);
 
-
-
-  // ── 사진 일괄 업로드 ──
+  // ── 사진 업로드/다운로드 ──
   async function gdUploadAllPhotos() {
-    if(!gdToken){ gdLogin(gdUploadAllPhotos); return; }
-    // 운동목록 먼저 동기화
-    if(gdDirty){
-      showLoading('운동 목록 동기화 중...');
-      await gdSyncUp();
-    }
+    if(!gdToken){gdLogin(gdUploadAllPhotos);return;}
+    if(gdDirty){showLoading('운동 목록 동기화 중...');await gdSyncUp();}
     showLoading('사진 수집 중...');
     try {
-      const db=await new Promise((res,rej)=>{ const r=indexedDB.open('workout_photos_db',1); r.onsuccess=e=>res(e.target.result); r.onerror=rej; });
-      const all=await new Promise((res,rej)=>{ const tx=db.transaction('photos','readonly'); const st=tx.objectStore('photos'); const result={}; const cr=st.openCursor(); cr.onsuccess=e=>{ const cursor=e.target.result; if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result); }; cr.onerror=rej; });
+      const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
+      const all=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly');const st=tx.objectStore('photos');const result={};const cr=st.openCursor();cr.onsuccess=e=>{const cursor=e.target.result;if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result);};cr.onerror=rej;});
       const keys=Object.keys(all);
-      if(!keys.length){ hideLoading(); showBigToast('⚠️ 저장된 사진이 없어요.'); return; }
-      showLoading(`사진 업로드 중... (${keys.length}개)`, true);
+      if(!keys.length){hideLoading();showBigToast('⚠️ 저장된 사진이 없어요.');return;}
+      showLoading(`사진 업로드 중... (${keys.length}개)`,true);
       const jsonStr=JSON.stringify(all);
       const existing=await gdFindFile('workout-photos-all.json');
       let r;
-      if(existing){
-        r=await xhrReq('PATCH',`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,
-          {Authorization:'Bearer '+gdToken,'Content-Type':'application/json'}, jsonStr);
-      } else {
+      if(existing) r=await xhrReq('PATCH',`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},jsonStr);
+      else {
         const meta=JSON.stringify({name:'workout-photos-all.json',parents:['appDataFolder']});
         const b='--gdbound';
-        const body=`
---${b}
-Content-Type: application/json
-
-${meta}
---${b}
-Content-Type: application/json
-
-${jsonStr}
---${b}--`;
-        r=await xhrReq('POST','https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-          {Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`}, body);
+        const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
+        r=await xhrReq('POST','https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body);
       }
       hideLoading();
-      if(r.ok) showBigToast(`✅ 사진 ${keys.length}개 항목 업로드 완료!`);
+      if(r.ok) showBigToast(`✅ 사진 ${keys.length}개 업로드 완료!`);
       else showBigToast('❌ 업로드 실패: '+r.status);
-    } catch(e){ hideLoading(); showBigToast('❌ 오류: '+e.message); }
+    } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
   }
-
-  // ── 사진 일괄 다운로드 ──
   async function gdDownloadAllPhotos() {
-    if(!gdToken){ gdLogin(gdDownloadAllPhotos); return; }
+    if(!gdToken){gdLogin(gdDownloadAllPhotos);return;}
     showLoading('Drive 확인 중...');
     try {
       const file=await gdFindFile('workout-photos-all.json');
-      if(!file){ hideLoading(); showBigToast('⚠️ Drive에 저장된 사진이 없어요.'); return; }
-      showLoading('사진 다운로드 중...', true);
-      const r=await xhrReq('GET',`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-        {Authorization:'Bearer '+gdToken});
-      if(!r.ok){ hideLoading(); showBigToast('❌ 다운로드 실패: '+r.status); return; }
+      if(!file){hideLoading();showBigToast('⚠️ Drive에 저장된 사진이 없어요.');return;}
+      showLoading('사진 다운로드 중...',true);
+      const r=await xhrReq('GET',`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,{Authorization:'Bearer '+gdToken});
+      if(!r.ok){hideLoading();showBigToast('❌ 다운로드 실패: '+r.status);return;}
       showLoading('사진 저장 중...');
       const all=JSON.parse(r.text);
-      const db=await new Promise((res,rej)=>{ const req=indexedDB.open('workout_photos_db',1); req.onsuccess=e=>res(e.target.result); req.onerror=rej; });
-      await new Promise((res,rej)=>{ const tx=db.transaction('photos','readwrite'); const st=tx.objectStore('photos'); Object.entries(all).forEach(([k,v])=>st.put(v,k)); tx.oncomplete=res; tx.onerror=rej; });
+      const db=await new Promise((res,rej)=>{const req=indexedDB.open('workout_photos_db',1);req.onsuccess=e=>res(e.target.result);req.onerror=rej;});
+      await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');const st=tx.objectStore('photos');Object.entries(all).forEach(([k,v])=>st.put(v,k));tx.oncomplete=res;tx.onerror=rej;});
       hideLoading();
-      showBigToast(`✅ 사진 ${Object.keys(all).length}개 항목 다운로드 완료!`);
-    } catch(e){ hideLoading(); showBigToast('❌ 오류: '+e.message); }
+      showBigToast(`✅ 사진 ${Object.keys(all).length}개 다운로드 완료!`);
+    } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
   }
 
-  // ── loading/toast UI ──
-  function showLoading(msg, showProg=false) {
-    document.getElementById('loadingMsg').textContent=msg;
-    document.getElementById('loadingOverlay').classList.add('open');
-    document.getElementById('loadingSpinner').style.display=showProg?'none':'block';
-    document.getElementById('progressWrap').classList.toggle('show',showProg);
-    if(showProg) setProgress(0);
-  }
-  function hideLoading(){ document.getElementById('loadingOverlay').classList.remove('open'); }
-  function setProgress(pct){
-    const offset=2*Math.PI*35*(1-pct/100);
-    document.getElementById('progressBar').style.strokeDashoffset=offset;
-    document.getElementById('progressPct').textContent=Math.round(pct)+'%';
-  }
-  function showBigToast(msg){
-    const el=document.getElementById('toastBig');
-    el.textContent=msg; el.classList.add('show');
-    setTimeout(()=>el.classList.remove('show'),3500);
-  }
+  // ── UI 헬퍼 ──
+  function showLoading(msg,showProg=false){document.getElementById('loadingMsg').textContent=msg;document.getElementById('loadingOverlay').classList.add('open');document.getElementById('loadingSpinner').style.display=showProg?'none':'block';document.getElementById('progressWrap').classList.toggle('show',showProg);if(showProg)setProgress(0);}
+  function hideLoading(){document.getElementById('loadingOverlay').classList.remove('open');}
+  function setProgress(pct){const offset=2*Math.PI*35*(1-pct/100);document.getElementById('progressBar').style.strokeDashoffset=offset;document.getElementById('progressPct').textContent=Math.round(pct)+'%';}
+  function showBigToast(msg){const el=document.getElementById('toastBig');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3500);}
 
   // window exports
-  window.gdLogin            = gdLogin;
-  window.gdSyncDown         = gdSyncDown;
-  window.gdUploadAllPhotos  = gdUploadAllPhotos;
-  window.gdDownloadAllPhotos= gdDownloadAllPhotos;
-  window.gdSetStatus        = gdSetStatus;
-  window.showLoading        = showLoading;
-  window.hideLoading        = hideLoading;
-  window.setProgress        = setProgress;
-  window.showBigToast       = showBigToast;
+  window.gdLogin=gdLogin;
+  window.gdSyncDown=gdSyncDown;
+  window.gdUploadAllPhotos=gdUploadAllPhotos;
+  window.gdDownloadAllPhotos=gdDownloadAllPhotos;
+  window.gdSetStatus=gdSetStatus;
+  window.showLoading=showLoading;
+  window.hideLoading=hideLoading;
+  window.setProgress=setProgress;
+  window.showBigToast=showBigToast;
   Object.defineProperty(window,'gdToken',{get:()=>gdToken});
 
-  // ── 페이지 로드 시 조용히 자동 로그인 ──
-  window.addEventListener('DOMContentLoaded', ()=>{
-    setTimeout(()=>{
-      const hint = localStorage.getItem(GD_LOGIN_HINT_KEY);
-      if(hint){
-        // 이전 로그인 기록 있으면 팝업 숨기고 조용히 시도
-        document.getElementById('gdOverlay').classList.remove('open');
-      }
-      gdAutoLogin();
-    }, 300);
+  // ── 페이지 로드 ──
+  window.addEventListener('DOMContentLoaded',()=>{
+    // OAuth 리디렉션 후 토큰 처리
+    if(location.hash.includes('access_token')){
+      gdHandleCallback();
+      const btn=document.getElementById('gdLoginBtn');
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdSyncDown();};}
+      document.getElementById('gdOverlay').classList.remove('open');
+      gdSyncDown();
+      return;
+    }
+    // 저장된 토큰으로 복원
+    if(gdRestoreToken()){
+      const btn=document.getElementById('gdLoginBtn');
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdSyncDown();};}
+      gdSyncDown();
+      return;
+    }
+    // 토큰 없으면 로그인 팝업
+    setTimeout(()=>document.getElementById('gdOverlay').classList.add('open'),300);
   });
   </script>
 </head>
 <body>
-<!-- 로그인 힌트 있으면 팝업이 절대 안 뜨도록 즉시 처리 -->
-<script>
-(function(){
-  // DOMContentLoaded 전에 실행 — gdOverlay가 아직 없으므로 MutationObserver 사용
-  const hint = localStorage.getItem('gd_login_hint');
-  if(hint){
-    // DOM 생성되는 순간 overlay의 open 클래스를 막음
-    const obs = new MutationObserver(()=>{
-      const el = document.getElementById('gdOverlay');
-      if(el){ el.classList.remove('open'); obs.disconnect(); }
-    });
-    obs.observe(document.documentElement, {childList:true, subtree:true});
-  }
-})();
-</script>
-
 <!-- Drive 동기화 바 -->
 <div class="gd-bar">
   <button class="gd-btn" id="gdOpenBtn">
