@@ -107,6 +107,7 @@
     .act-tag-swim{background:rgba(34,211,238,0.13);color:var(--aqua);}
     .act-tag-tennis{background:rgba(251,191,36,0.13);color:var(--amber);}
     .act-tag-bike{background:rgba(74,222,128,0.13);color:var(--green);}
+    .act-tag-strength{background:rgba(251,113,133,0.13);color:var(--rose);}
     .act-tag-rest{background:rgba(107,107,107,0.13);color:var(--muted);}
     /* done dot */
     .done-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:3px;}
@@ -196,6 +197,7 @@
     .changed-chip-swim{background:rgba(34,211,238,0.12);color:var(--aqua);border:1px solid rgba(34,211,238,0.3);}
     .changed-chip-tennis{background:rgba(251,191,36,0.12);color:var(--amber);border:1px solid rgba(251,191,36,0.3);}
     .changed-chip-bike{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.3);}
+    .changed-chip-strength{background:rgba(251,113,133,0.12);color:var(--rose);border:1px solid rgba(251,113,133,0.3);}
     .chip-x{background:none;border:none;cursor:pointer;font-size:14px;line-height:1;color:inherit;opacity:0.6;padding:0;}
     .chip-x:hover{opacity:1;}
     .no-changed{font-size:12px;color:var(--muted);font-style:italic;}
@@ -394,6 +396,7 @@
     .rt-type-btn.sel-swim{background:rgba(34,211,238,0.18);border-color:rgba(34,211,238,0.5);}
     .rt-type-btn.sel-tennis{background:rgba(251,191,36,0.18);border-color:rgba(251,191,36,0.5);}
     .rt-type-btn.sel-bike{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.5);}
+    .rt-type-btn.sel-strength{background:rgba(251,113,133,0.18);border-color:rgba(251,113,133,0.5);}
     .rt-name-input{width:120px;min-width:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 7px;font-size:12px;color:var(--text);font-family:'Noto Sans KR',sans-serif;outline:none;}
     .rt-name-input:focus{border-color:rgba(163,230,53,0.4);}
     .rt-name-input.rt-input-disabled,.rt-name-input:disabled{background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.05);color:var(--muted);cursor:default;}
@@ -427,6 +430,7 @@
     .picker-item.sel-run{border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.07);}
     .picker-item.sel-swim{border-color:rgba(34,211,238,0.35);background:rgba(34,211,238,0.07);}
     .picker-item.sel-tennis{border-color:rgba(251,191,36,0.35);background:rgba(251,191,36,0.07);}
+    .picker-item.sel-strength{border-color:rgba(251,113,133,0.35);background:rgba(251,113,133,0.07);}
     .picker-item.sel-bike{border-color:rgba(74,222,128,0.35);background:rgba(74,222,128,0.07);}
     .picker-check{font-size:13px;opacity:0;flex-shrink:0;}
     .picker-item.sel-golf .picker-check,.picker-item.sel-run .picker-check,.picker-item.sel-swim .picker-check,.picker-item.sel-tennis .picker-check,.picker-item.sel-bike .picker-check{opacity:1;}
@@ -944,11 +948,12 @@ const PLAN_KEY   = 'workout_plan_name_v6'; // {dateKey:type -> name}
 const DONE_KEY   = 'workout_done_v4';      // {dateKey:type -> true}
 
 const DEFAULT_OPTS = {
-  golf:  ['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'],
-  run:   ['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'],
-  swim:  ['자유형','배영','평영','접영','혼합 수영','수영 인터벌'],
-  tennis:['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'],
-  bike:  ['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'],
+  golf:     ['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'],
+  run:      ['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'],
+  swim:     ['자유형','배영','평영','접영','혼합 수영','수영 인터벌'],
+  tennis:   ['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'],
+  bike:     ['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'],
+  strength: ['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'],
 };
 
 /* ══ 사진 압축 ══ */
@@ -1134,16 +1139,16 @@ function saveUserDefault(r){save(USER_DEFAULT_KEY,JSON.parse(JSON.stringify(r)))
 
 // 아이콘 헬퍼
 function typeIcon(type){
-  return {golf:'⛳',run:'🏃',swim:'🏊',tennis:'🎾',bike:'🚴',rest:'💤'}[type]||'💤';
+  return {golf:'⛳',run:'🏃',swim:'🏊',tennis:'🎾',bike:'🚴',strength:'💪',rest:'💤'}[type]||'💤';
 }
 function typeName(type){
-  return {golf:'골프',run:'러닝',swim:'수영',tennis:'테니스',bike:'자전거',rest:'휴식'}[type]||type;
+  return {golf:'골프',run:'러닝',swim:'수영',tennis:'테니스',bike:'자전거',strength:'보강운동',rest:'휴식'}[type]||type;
 }
 function typeColor(type){
-  return {golf:'var(--lime)',run:'var(--sky)',swim:'var(--aqua)',tennis:'var(--amber)',bike:'var(--green)'}[type]||'var(--muted)';
+  return {golf:'var(--lime)',run:'var(--sky)',swim:'var(--aqua)',tennis:'var(--amber)',bike:'var(--green)',strength:'var(--rose)'}[type]||'var(--muted)';
 }
 function typeDefName(type){
-  return {golf:'연습장',run:'조깅',swim:'자유형',tennis:'랠리',bike:'로드 라이딩'}[type]||type;
+  return {golf:'연습장',run:'조깅',swim:'자유형',tennis:'랠리',bike:'로드 라이딩',strength:'런지'}[type]||type;
 }
 
 /* ══ SCHEDULE — 루틴 기반 ══ */
@@ -1527,7 +1532,7 @@ function renderModalTabs(){
 
   // 추가 가능한 타입: 현재 탭에 없는 것 (삭제된 기본 항목 포함)
   const currentTypes=tabs.map(t=>t.type);
-  const canAdd=['run','golf','swim','bike','tennis'].filter(t=>!currentTypes.includes(t));
+  const canAdd=['run','golf','swim','bike','tennis','strength'].filter(t=>!currentTypes.includes(t));
 
   let html=tabs.map(t=>{
     const active=t.type===activeType;
@@ -2260,7 +2265,7 @@ function renderSettingsPanel(){
       const items=weeks[w][d]||[];
       const types=items.map(i=>i.type);
       const hasGolf=types.includes('golf');
-      const ALL_TYPES=['run','golf','swim','bike','tennis'];
+      const ALL_TYPES=['run','golf','swim','bike','tennis','strength'];
       const activeItems=items.filter(i=>i.type!=='rest'); // editRoutine 순서대로
       const inactiveTypes=ALL_TYPES.filter(t=>!activeItems.some(i=>i.type===t));
 
