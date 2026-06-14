@@ -268,14 +268,15 @@
     .photo-thumb.selected .photo-check-icon{background:var(--lime);border-color:var(--lime);color:var(--bg);font-weight:900;}
     .photo-thumb.selected::after{content:'';position:absolute;inset:0;border:3px solid var(--lime);border-radius:8px;pointer-events:none;}
     /* 사진 전체보기 */
-    .photo-viewer{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
-    .photo-viewer.open{display:flex;}
-    .photo-viewer img{max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain;}
-    .photo-viewer-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;}
-    .photo-viewer-nav{display:flex;gap:16px;align-items:center;}
-    .photo-viewer-btn{background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:40px;height:40px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .photo-viewer{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:500;touch-action:none;}
+    .photo-viewer.open{display:block;}
+    .photo-viewer-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;z-index:10;}
+    .photo-viewer-img-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+    .photo-viewer-img-wrap img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:center;will-change:transform;transition:none;}
+    .photo-viewer-nav{position:absolute;bottom:32px;left:0;right:0;display:flex;gap:16px;align-items:center;justify-content:center;z-index:10;pointer-events:none;}
+    .photo-viewer-btn{background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:all;}
     .photo-viewer-btn:hover{background:rgba(255,255,255,0.3);}
-    .photo-viewer-count{color:rgba(255,255,255,0.6);font-size:13px;}
+    .photo-viewer-count{color:rgba(255,255,255,0.7);font-size:13px;pointer-events:none;}
     /* 토스트 */
     .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:#1E2E1E;border:1px solid rgba(163,230,53,0.3);color:var(--text);border-radius:20px;padding:10px 20px;font-size:13px;z-index:600;opacity:0;transition:opacity 0.2s,transform 0.2s;pointer-events:none;white-space:nowrap;}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -2459,7 +2460,9 @@ async function sharePhotos(photos,indices,dk,type){
   const el=document.createElement('div');
   el.innerHTML=`<div class="photo-viewer" id="photoViewer">
   <button class="photo-viewer-close" id="photoViewerClose">✕</button>
-  <img id="photoViewerImg" src="" alt="사진">
+  <div class="photo-viewer-img-wrap" id="photoViewerWrap">
+    <img id="photoViewerImg" src="" alt="사진">
+  </div>
   <div class="photo-viewer-nav">
     <button class="photo-viewer-btn" id="photoViewerPrev">‹</button>
     <span class="photo-viewer-count" id="photoViewerCount"></span>
@@ -2471,10 +2474,24 @@ async function sharePhotos(photos,indices,dk,type){
 })();
 
 let viewerDk='', viewerType='', viewerIdx=0;
+let vzScale=1, vzDx=0, vzDy=0;
+let vzPinching=false, vzLastDist=0, vzStartScale=1;
+let vzSwipeStartX=0, vzSwipeStartY=0, vzSwiping=false;
+
 function openPhotoViewer(dk,type,idx){
   viewerDk=dk; viewerType=type; viewerIdx=idx;
+  vzReset();
   renderViewer();
   document.getElementById('photoViewer').classList.add('open');
+}
+function vzReset(){
+  vzScale=1; vzDx=0; vzDy=0;
+  const img=document.getElementById('photoViewerImg');
+  img.style.transform='';
+}
+function vzApply(){
+  const img=document.getElementById('photoViewerImg');
+  img.style.transform=`translate(${vzDx}px,${vzDy}px) scale(${vzScale})`;
 }
 function renderViewer(){
   const photos=getPhotosCached(viewerDk,viewerType);
@@ -2483,10 +2500,79 @@ function renderViewer(){
   document.getElementById('photoViewerPrev').style.opacity=viewerIdx>0?'1':'0.3';
   document.getElementById('photoViewerNext').style.opacity=viewerIdx<photos.length-1?'1':'0.3';
 }
-document.getElementById('photoViewerClose').onclick=()=>document.getElementById('photoViewer').classList.remove('open');
-document.getElementById('photoViewer').onclick=e=>{if(e.target===document.getElementById('photoViewer'))document.getElementById('photoViewer').classList.remove('open');};
-document.getElementById('photoViewerPrev').onclick=e=>{e.stopPropagation();if(viewerIdx>0){viewerIdx--;renderViewer();}};
-document.getElementById('photoViewerNext').onclick=e=>{e.stopPropagation();const p=getPhotosCached(viewerDk,viewerType);if(viewerIdx<p.length-1){viewerIdx++;renderViewer();}};
+function vzGoNext(){ const p=getPhotosCached(viewerDk,viewerType); if(viewerIdx<p.length-1){viewerIdx++;vzReset();renderViewer();} }
+function vzGoPrev(){ if(viewerIdx>0){viewerIdx--;vzReset();renderViewer();} }
+
+// 버튼
+document.getElementById('photoViewerClose').onclick=()=>{document.getElementById('photoViewer').classList.remove('open');};
+document.getElementById('photoViewerPrev').onclick=e=>{e.stopPropagation();vzGoPrev();};
+document.getElementById('photoViewerNext').onclick=e=>{e.stopPropagation();vzGoNext();};
+
+// 터치 이벤트 (핀치줌 + 스와이프)
+const wrap=document.getElementById('photoViewerWrap');
+wrap.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){
+    vzPinching=true; vzSwiping=false;
+    vzLastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    vzStartScale=vzScale;
+  } else if(e.touches.length===1 && vzScale<=1){
+    vzSwiping=true; vzPinching=false;
+    vzSwipeStartX=e.touches[0].clientX;
+    vzSwipeStartY=e.touches[0].clientY;
+  }
+},{passive:true});
+wrap.addEventListener('touchmove',e=>{
+  if(vzPinching && e.touches.length===2){
+    const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    vzScale=Math.min(5, Math.max(1, vzStartScale*(dist/vzLastDist)));
+    if(vzScale<=1){vzDx=0;vzDy=0;}
+    vzApply();
+  } else if(vzSwiping && e.touches.length===1 && vzScale<=1){
+    // 스와이프 미리보기
+    const dx=e.touches[0].clientX-vzSwipeStartX;
+    document.getElementById('photoViewerImg').style.transform=`translateX(${dx}px)`;
+  }
+},{passive:true});
+wrap.addEventListener('touchend',e=>{
+  if(vzSwiping && vzScale<=1){
+    const dx=e.changedTouches[0].clientX-vzSwipeStartX;
+    const dy=e.changedTouches[0].clientY-vzSwipeStartY;
+    document.getElementById('photoViewerImg').style.transform='';
+    if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)){
+      if(dx<0) vzGoNext(); else vzGoPrev();
+    }
+  }
+  vzPinching=false; vzSwiping=false;
+},{passive:true});
+
+// 줌 상태에서 드래그 이동
+let vzDragStartX=0, vzDragStartY=0, vzDragDx=0, vzDragDy=0, vzDragging=false;
+wrap.addEventListener('touchstart',e=>{
+  if(e.touches.length===1 && vzScale>1){
+    vzDragging=true;
+    vzDragStartX=e.touches[0].clientX-vzDx;
+    vzDragStartY=e.touches[0].clientY-vzDy;
+  }
+},{passive:true});
+wrap.addEventListener('touchmove',e=>{
+  if(vzDragging && e.touches.length===1 && vzScale>1){
+    vzDx=e.touches[0].clientX-vzDragStartX;
+    vzDy=e.touches[0].clientY-vzDragStartY;
+    vzApply();
+  }
+},{passive:true});
+wrap.addEventListener('touchend',()=>{ vzDragging=false; },{passive:true});
+
+// 더블탭 줌 토글
+let vzLastTap=0;
+wrap.addEventListener('click',e=>{
+  const now=Date.now();
+  if(now-vzLastTap<300){
+    if(vzScale>1){ vzReset(); vzApply(); }
+    else { vzScale=2.5; vzApply(); }
+  }
+  vzLastTap=now;
+});
 
 document.getElementById('photoViewerShare').onclick=async e=>{
   e.stopPropagation();
