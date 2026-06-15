@@ -1078,14 +1078,14 @@ function getRoutine(){
 
 function saveRoutine(r){
   save(ROUTINE_KEY,r);
-  // 이력 저장 — savedAt = 오늘 자정 타임스탬프
-  const today=new Date(); today.setHours(0,0,0,0);
-  const entry={routine:JSON.parse(JSON.stringify(r)),savedAt:today.getTime()};
+  // 이력 저장 — savedAt = 이번 주 시작(일요일 자정) → 이번 주부터 바로 적용
+  const weekStart=getWeekStart(new Date());
+  const entry={routine:JSON.parse(JSON.stringify(r)),savedAt:weekStart.getTime()};
   const d=load(ROUTINE_HISTORY_KEY);
   if(!d.list) d.list=[];
-  d.list=d.list.filter(e=>e.savedAt!==entry.savedAt); // 같은 날 저장은 덮어씀
+  d.list=d.list.filter(e=>e.savedAt!==entry.savedAt); // 같은 주 저장은 덮어씀
   d.list.push(entry);
-  if(d.list.length>52) d.list=d.list.slice(-52); // 최대 1년치
+  if(d.list.length>52) d.list=d.list.slice(-52);
   save(ROUTINE_HISTORY_KEY,d);
 }
 
@@ -1093,10 +1093,11 @@ function saveRoutine(r){
 // 이력 없으면 DEFAULT_ROUTINE 사용
 function getRoutineForDate(date){
   const history=load(ROUTINE_HISTORY_KEY).list||[];
-  const dateTs=new Date(date).setHours(0,0,0,0);
+  // 해당 날짜의 주 시작과 비교 — savedAt <= 주 시작이면 적용 (이번 주 루틴 포함)
+  const weekStartTs=getWeekStart(new Date(date)).getTime();
   let best=null;
   for(const e of history){
-    if(e.savedAt<dateTs&&(!best||e.savedAt>best.savedAt)) best=e;
+    if(e.savedAt<=weekStartTs&&(!best||e.savedAt>best.savedAt)) best=e;
   }
   return best?best.routine:JSON.parse(JSON.stringify(DEFAULT_ROUTINE));
 }
