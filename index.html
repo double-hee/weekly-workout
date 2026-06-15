@@ -191,6 +191,8 @@
     .note-view{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.8;color:var(--text);min-height:60px;white-space:pre-wrap;word-break:break-word;}
     .note-empty{color:var(--muted);font-style:italic;}
     .note-ta{width:100%;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.8;color:var(--text);font-family:'Noto Sans KR',sans-serif;resize:vertical;min-height:200px;outline:none;border:1px solid rgba(163,230,53,0.25);}
+    .note-preview{width:100%;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.8;color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:60px;border:1px solid rgba(163,230,53,0.25);box-sizing:border-box;word-break:break-all;cursor:text;margin-bottom:8px;}
+    .note-preview a{color:var(--sky);text-decoration:underline;}
     .note-ta:focus{border-color:var(--lime);}
     .note-ta::placeholder{color:var(--muted);}
     .memo-del-confirm{display:flex;align-items:center;gap:6px;}
@@ -996,6 +998,15 @@ function load(k){try{return JSON.parse(localStorage.getItem(k)||'{}');}catch{ret
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 
 // 메모
+// URL → 링크 변환
+function linkify(text){
+  if(!text) return '';
+  return esc(text).replace(
+    /(https?:\/\/[^\s<>"]+)/g,
+    '<a href="$1" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--sky);text-decoration:underline;word-break:break-all;">$1</a>'
+  ).replace(/\n/g,'<br>');
+}
+
 const getNote  = (dk,type)=>load(NOTES_KEY)[`${dk}:${type}`]||'';
 const saveNote = (dk,type,txt)=>{const d=load(NOTES_KEY),k=`${dk}:${type}`;txt.trim()?d[k]=txt.trim():delete d[k];save(NOTES_KEY,d);};
 
@@ -1701,6 +1712,10 @@ function buildPane(item){
     <!-- ③ 메모 -->
     <div class="modal-divider"></div>
     <div class="m-section-label">메모</div>
+    ${note
+      ? `<div class="note-preview" id="notePreview-${type}" title="탭하여 편집">${linkify(note)}</div>`
+      : ''
+    }
     ${noteTA}
     <div class="modal-actions">
       <div class="memo-del-wrap" id="memoDelWrap-${type}">
@@ -1930,10 +1945,20 @@ function bindPaneEvents(){
   ctx.tabs.forEach(({type})=>{
     const ta=document.getElementById(`noteTa-${type}`);
     if(!ta)return;
-    ta.onblur=()=>{ saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); };
+    const preview=document.getElementById(`notePreview-${type}`);
+    // 미리보기 있으면 처음엔 textarea 숨김
+    if(preview && ta.value.trim()) ta.style.display='none';
+    // 미리보기 클릭 → 편집 모드
+    if(preview) preview.onclick=()=>{ preview.style.display='none'; ta.style.display=''; ta.focus(); };
+    const updatePreview=(txt)=>{
+      if(!preview) return;
+      if(txt.trim()){ preview.innerHTML=linkify(txt); preview.style.display=''; ta.style.display='none'; }
+      else { preview.style.display='none'; ta.style.display=''; }
+    };
+    ta.onblur=()=>{ saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); updatePreview(ta.value); };
     ta.onclick=e=>e.stopPropagation();
     const saveBtn=document.querySelector(`[data-notesave="${type}"]`);
-    if(saveBtn) saveBtn.onclick=e=>{ e.stopPropagation(); saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); };
+    if(saveBtn) saveBtn.onclick=e=>{ e.stopPropagation(); saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); updatePreview(ta.value); };
   });
 }
 
