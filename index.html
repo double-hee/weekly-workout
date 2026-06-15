@@ -102,27 +102,11 @@
     .activity-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.2;}
     .activity-sub{font-size:11px;color:var(--subtext);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .act-tag{font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 7px;border-radius:12px;flex-shrink:0;}
-    .act-tag-golf{background:rgba(163,230,53,0.13);color:var(--lime);}
-    .act-tag-run{background:rgba(56,189,248,0.13);color:var(--sky);}
-    .act-tag-swim{background:rgba(34,211,238,0.13);color:var(--aqua);}
-    .act-tag-tennis{background:rgba(251,191,36,0.13);color:var(--amber);}
-    .act-tag-bike{background:rgba(74,222,128,0.13);color:var(--green);}
-    .act-tag-strength{background:rgba(251,113,133,0.13);color:var(--rose);}
     .act-tag-rest{background:rgba(107,107,107,0.13);color:var(--muted);}
     /* done dot */
     .done-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:3px;}
-    .done-dot-golf{background:var(--lime);}
-    .done-dot-run{background:var(--sky);}
-    .done-dot-swim{background:var(--aqua);}
-    .done-dot-tennis{background:var(--amber);}
-    .done-dot-bike{background:var(--green);}
     /* changed chip on card */
     .card-chip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
-    .card-chip-golf{background:rgba(163,230,53,0.18);color:var(--lime);}
-    .card-chip-run{background:rgba(56,189,248,0.18);color:var(--sky);}
-    .card-chip-swim{background:rgba(34,211,238,0.18);color:var(--aqua);}
-    .card-chip-tennis{background:rgba(251,191,36,0.18);color:var(--amber);}
-    .card-chip-bike{background:rgba(74,222,128,0.18);color:var(--green);}
     .alt-note{margin-top:12px;padding-top:10px;border-top:1px dashed rgba(163,230,53,0.1);font-size:11px;color:var(--subtext);display:flex;align-items:center;gap:5px;}
     .alt-note::before{content:'↻';color:var(--lime-dim);font-size:12px;}
 
@@ -192,12 +176,6 @@
     .changed-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;min-height:24px;}
     .changed-chip{display:flex;align-items:center;gap:5px;padding:5px 10px 5px 12px;border-radius:20px;font-size:13px;font-weight:600;animation:chipIn 0.15s ease;}
     @keyframes chipIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:none;}}
-    .changed-chip-golf{background:rgba(163,230,53,0.12);color:var(--lime);border:1px solid rgba(163,230,53,0.3);}
-    .changed-chip-run{background:rgba(56,189,248,0.12);color:var(--sky);border:1px solid rgba(56,189,248,0.3);}
-    .changed-chip-swim{background:rgba(34,211,238,0.12);color:var(--aqua);border:1px solid rgba(34,211,238,0.3);}
-    .changed-chip-tennis{background:rgba(251,191,36,0.12);color:var(--amber);border:1px solid rgba(251,191,36,0.3);}
-    .changed-chip-bike{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.3);}
-    .changed-chip-strength{background:rgba(251,113,133,0.12);color:var(--rose);border:1px solid rgba(251,113,133,0.3);}
     .chip-x{background:none;border:none;cursor:pointer;font-size:14px;line-height:1;color:inherit;opacity:0.6;padding:0;}
     .chip-x:hover{opacity:1;}
     .no-changed{font-size:12px;color:var(--muted);font-style:italic;}
@@ -207,21 +185,6 @@
 
     /* done check */
     .done-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;border:2px dashed;transition:all 0.18s;}
-    .done-btn-golf{border-color:rgba(163,230,53,0.3);color:var(--subtext);background:transparent;}
-    .done-btn-golf:hover{border-color:rgba(163,230,53,0.6);background:rgba(163,230,53,0.07);color:var(--lime);}
-    .done-btn-golf.done{border-style:solid;border-color:var(--lime);background:rgba(163,230,53,0.15);color:var(--lime);}
-    .done-btn-run{border-color:rgba(56,189,248,0.3);color:var(--subtext);background:transparent;}
-    .done-btn-run:hover{border-color:rgba(56,189,248,0.6);background:rgba(56,189,248,0.07);color:var(--sky);}
-    .done-btn-run.done{border-style:solid;border-color:var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);}
-    .done-btn-swim{border-color:rgba(34,211,238,0.3);color:var(--subtext);background:transparent;}
-    .done-btn-swim:hover{border-color:rgba(34,211,238,0.6);background:rgba(34,211,238,0.07);color:var(--aqua);}
-    .done-btn-swim.done{border-style:solid;border-color:var(--aqua);background:rgba(34,211,238,0.15);color:var(--aqua);}
-    .done-btn-tennis{border-color:rgba(251,191,36,0.3);color:var(--subtext);background:transparent;}
-    .done-btn-tennis:hover{border-color:rgba(251,191,36,0.6);background:rgba(251,191,36,0.07);color:var(--amber);}
-    .done-btn-tennis.done{border-style:solid;border-color:var(--amber);background:rgba(251,191,36,0.15);color:var(--amber);}
-    .done-btn-bike{border-color:rgba(74,222,128,0.3);color:var(--subtext);background:transparent;}
-    .done-btn-bike:hover{border-color:rgba(74,222,128,0.6);background:rgba(74,222,128,0.07);color:var(--green);}
-    .done-btn-bike.done{border-style:solid;border-color:var(--green);background:rgba(74,222,128,0.15);color:var(--green);}
 
     /* note */
     .modal-divider{height:1px;background:rgba(255,255,255,0.07);margin:14px 0;}
@@ -392,12 +355,6 @@
     .rt-drag-handle:active{cursor:grabbing;}
     .rt-type-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
     .rt-type-btn:hover{background:rgba(255,255,255,0.1);}
-    .rt-type-btn.sel-golf{background:rgba(163,230,53,0.18);border-color:rgba(163,230,53,0.5);}
-    .rt-type-btn.sel-run{background:rgba(56,189,248,0.18);border-color:rgba(56,189,248,0.5);}
-    .rt-type-btn.sel-swim{background:rgba(34,211,238,0.18);border-color:rgba(34,211,238,0.5);}
-    .rt-type-btn.sel-tennis{background:rgba(251,191,36,0.18);border-color:rgba(251,191,36,0.5);}
-    .rt-type-btn.sel-bike{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.5);}
-    .rt-type-btn.sel-strength{background:rgba(251,113,133,0.18);border-color:rgba(251,113,133,0.5);}
     .rt-name-input{width:120px;min-width:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 7px;font-size:12px;color:var(--text);font-family:'Noto Sans KR',sans-serif;outline:none;}
     .rt-name-input:focus{border-color:rgba(163,230,53,0.4);}
     .rt-name-input.rt-input-disabled,.rt-name-input:disabled{background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.05);color:var(--muted);cursor:default;}
@@ -427,14 +384,7 @@
     .picker-list{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
     .picker-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.12s;font-size:14px;color:var(--text);font-weight:500;border:1px solid transparent;}
     .picker-item:hover{background:rgba(255,255,255,0.06);}
-    .picker-item.sel-golf{border-color:rgba(163,230,53,0.35);background:rgba(163,230,53,0.07);}
-    .picker-item.sel-run{border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.07);}
-    .picker-item.sel-swim{border-color:rgba(34,211,238,0.35);background:rgba(34,211,238,0.07);}
-    .picker-item.sel-tennis{border-color:rgba(251,191,36,0.35);background:rgba(251,191,36,0.07);}
-    .picker-item.sel-strength{border-color:rgba(251,113,133,0.35);background:rgba(251,113,133,0.07);}
-    .picker-item.sel-bike{border-color:rgba(74,222,128,0.35);background:rgba(74,222,128,0.07);}
     .picker-check{font-size:13px;opacity:0;flex-shrink:0;}
-    .picker-item.sel-golf .picker-check,.picker-item.sel-run .picker-check,.picker-item.sel-swim .picker-check,.picker-item.sel-tennis .picker-check,.picker-item.sel-bike .picker-check{opacity:1;}
     .picker-lbl{flex:1;}
     .picker-edit-btn{background:none;border:none;color:var(--subtext);font-size:13px;cursor:pointer;padding:2px 4px;flex-shrink:0;transition:color 0.12s;}
     .picker-edit-btn:hover{color:var(--sky);}
@@ -948,14 +898,43 @@ const CUSTOM_KEY = 'workout_custom_v4';
 const PLAN_KEY   = 'workout_plan_name_v6'; // {dateKey:type -> name}
 const DONE_KEY   = 'workout_done_v4';      // {dateKey:type -> true}
 
-const DEFAULT_OPTS = {
-  golf:     ['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'],
-  run:      ['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'],
-  swim:     ['자유형','배영','평영','접영','혼합 수영','수영 인터벌'],
-  tennis:   ['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'],
-  bike:     ['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'],
-  strength: ['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'],
+// ══ 운동 타입 중앙 정의 ══
+// 새 운동 추가 시 여기만 수정하면 CSS/함수/피커 모두 자동 반영
+const WORKOUT_TYPES = {
+  run:      { icon:'🏃', name:'러닝',     color:'var(--sky)',   rgb:'56,189,248',  defName:'조깅',        opts:['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'] },
+  golf:     { icon:'⛳', name:'골프',     color:'var(--lime)',  rgb:'163,230,53',  defName:'연습장',       opts:['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'] },
+  swim:     { icon:'🏊', name:'수영',     color:'var(--aqua)',  rgb:'34,211,238',  defName:'자유형',       opts:['자유형','배영','평영','접영','혼합 수영','수영 인터벌'] },
+  bike:     { icon:'🚴', name:'자전거',   color:'var(--green)', rgb:'74,222,128',  defName:'로드 라이딩',   opts:['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'] },
+  tennis:   { icon:'🎾', name:'테니스',   color:'var(--amber)', rgb:'251,191,36',  defName:'랠리',         opts:['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'] },
+  strength: { icon:'💪', name:'보강운동', color:'var(--rose)',  rgb:'251,113,133', defName:'런지',         opts:['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'] },
 };
+const ALL_WORKOUT_TYPES = Object.keys(WORKOUT_TYPES);
+
+// CSS 자동 생성
+(function(){
+  let css = '';
+  ALL_WORKOUT_TYPES.forEach(t => {
+    const {color, rgb} = WORKOUT_TYPES[t];
+    css += `.act-tag-${t}{background:rgba(${rgb},0.13);color:${color};}\n`;
+    css += `.card-chip-${t}{background:rgba(${rgb},0.18);color:${color};}\n`;
+    css += `.done-dot-${t}{background:${color};}\n`;
+    css += `.done-btn-${t}{border-color:rgba(${rgb},0.3);color:var(--subtext);background:transparent;}\n`;
+    css += `.done-btn-${t}:hover{border-color:rgba(${rgb},0.6);background:rgba(${rgb},0.07);color:${color};}\n`;
+    css += `.done-btn-${t}.done{border-style:solid;border-color:${color};background:rgba(${rgb},0.15);color:${color};}\n`;
+    css += `.changed-chip-${t}{background:rgba(${rgb},0.12);color:${color};border:1px solid rgba(${rgb},0.3);}\n`;
+    css += `.rt-type-btn.sel-${t}{background:rgba(${rgb},0.18);border-color:rgba(${rgb},0.5);}\n`;
+    css += `.picker-item.sel-${t}{border-color:rgba(${rgb},0.35);background:rgba(${rgb},0.07);}\n`;
+    css += `.picker-item.sel-${t} .picker-check{opacity:1;}\n`;
+  });
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+// DEFAULT_OPTS는 WORKOUT_TYPES.opts에서 자동 생성
+const DEFAULT_OPTS = Object.fromEntries(
+  Object.entries(WORKOUT_TYPES).map(([t,v])=>[t, v.opts||[]])
+);
 
 /* ══ 사진 압축 ══ */
 function compressImage(dataUrl){
@@ -1158,18 +1137,10 @@ const DEFAULT_ROUTINE = {
 function saveUserDefault(r){save(USER_DEFAULT_KEY,JSON.parse(JSON.stringify(r)));}
 
 // 아이콘 헬퍼
-function typeIcon(type){
-  return {golf:'⛳',run:'🏃',swim:'🏊',tennis:'🎾',bike:'🚴',strength:'💪',rest:'💤'}[type]||'💤';
-}
-function typeName(type){
-  return {golf:'골프',run:'러닝',swim:'수영',tennis:'테니스',bike:'자전거',strength:'보강운동',rest:'휴식'}[type]||type;
-}
-function typeColor(type){
-  return {golf:'var(--lime)',run:'var(--sky)',swim:'var(--aqua)',tennis:'var(--amber)',bike:'var(--green)',strength:'var(--rose)'}[type]||'var(--muted)';
-}
-function typeDefName(type){
-  return {golf:'연습장',run:'조깅',swim:'자유형',tennis:'랠리',bike:'로드 라이딩',strength:'런지'}[type]||type;
-}
+function typeIcon(type){ return (WORKOUT_TYPES[type]?.icon)||'💤'; }
+function typeName(type){ return (WORKOUT_TYPES[type]?.name)||({rest:'휴식'}[type]||type); }
+function typeColor(type){ return (WORKOUT_TYPES[type]?.color)||'var(--muted)'; }
+function typeDefName(type){ return (WORKOUT_TYPES[type]?.defName)||type; }
 
 /* ══ SCHEDULE — 루틴 기반 ══ */
 function getDayPlan(dayIndex, weekIndexOrEven, routineOverride){
@@ -1555,7 +1526,7 @@ function renderModalTabs(){
 
   // 추가 가능한 타입: 현재 탭에 없는 것 (삭제된 기본 항목 포함)
   const currentTypes=tabs.map(t=>t.type);
-  const canAdd=['run','golf','swim','bike','tennis','strength'].filter(t=>!currentTypes.includes(t));
+  const canAdd=ALL_WORKOUT_TYPES.filter(t=>!currentTypes.includes(t));
 
   let html=tabs.map(t=>{
     const active=t.type===activeType;
@@ -2257,7 +2228,7 @@ function closeSettings(){
 
 function buildCellHTML(w, d, items){
   const types=items.map(i=>i.type);
-  const ALL_TYPES=['run','golf','swim','bike','tennis','strength'];
+  const ALL_TYPES=ALL_WORKOUT_TYPES;
   const activeItems=items.filter(i=>i.type!=='rest');
   const inactiveTypes=ALL_TYPES.filter(t=>!activeItems.some(i=>i.type===t));
   const activeRows=activeItems.map(item=>`
