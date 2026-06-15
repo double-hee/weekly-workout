@@ -330,9 +330,9 @@
     .settings-section-label{font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--lime);margin-bottom:12px;}
     /* cycle buttons */
     .cycle-btns{display:flex;gap:8px;}
-    .cycle-btn{padding:8px 24px;border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid rgba(163,230,53,0.2);background:rgba(255,255,255,0.04);color:var(--subtext);font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
+    .cycle-btn{padding:5px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(163,230,53,0.2);background:rgba(255,255,255,0.04);color:var(--subtext);font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;}
     .cycle-btn:hover{border-color:rgba(163,230,53,0.4);color:var(--text);}
-    .cycle-btn.active{background:rgba(163,230,53,0.15);border-color:var(--lime);color:var(--lime);}
+    .cycle-btn.active{background:rgba(163,230,53,0.2);border-color:var(--lime);color:var(--lime);box-shadow:0 0 6px rgba(163,230,53,0.25);}
     /* routine table */
     .rt-scroll{overflow-x:auto;}
     .rt-table{border-collapse:collapse;width:100%;min-width:360px;}
@@ -2142,7 +2142,8 @@ function closePicker(){document.getElementById('pickerBackdrop').classList.remov
       <div id="routineTable"></div>
     </div>
     </div>
-    <div class="settings-footer" style="padding:16px 24px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);">
+    <div style="text-align:center;font-size:11px;color:var(--subtext);padding:10px 24px 0;flex-shrink:0;">루틴 저장 시 이번 주부터 반영됩니다.</div>
+    <div class="settings-footer" style="padding:12px 24px 16px;flex-shrink:0;border-top:none;">
       <button class="settings-save-default" id="settingsSaveDefault">기본값으로 저장</button>
       <button class="settings-reset" id="settingsReset">기본값 불러오기</button>
       <button class="settings-save" id="settingsSave">저장</button>
@@ -2304,7 +2305,8 @@ function renderSettingsPanel(){
 
   // 사이클 버튼
   document.querySelectorAll('.cycle-btn').forEach(btn=>{
-    btn.className='cycle-btn'+(parseInt(btn.dataset.cycle)===cycle?' active':'');
+    const btnCycle = parseInt(btn.dataset.cycle);
+    btn.className = 'cycle-btn' + (btnCycle === editRoutine.cycle ? ' active' : '');
     btn.onclick=()=>{
       const newCycle=parseInt(btn.dataset.cycle);
       if(newCycle===editRoutine.cycle)return;
@@ -2315,6 +2317,10 @@ function renderSettingsPanel(){
       }
       editRoutine={cycle:newCycle,weeks:newWeeks};
       injectWD(editRoutine);
+      // 사이클 버튼 active 즉시 업데이트
+      document.querySelectorAll('.cycle-btn').forEach(b=>{
+        b.className='cycle-btn'+(parseInt(b.dataset.cycle)===newCycle?' active':'');
+      });
       rebuildTable();
     };
   });
@@ -2326,10 +2332,16 @@ function rebuildTable(){
   const {cycle,weeks}=editRoutine;
   const table=document.getElementById('routineTable');
 
-  // 테이블 전체 재구성 (사이클 변경 시에만 호출)
+  // 현재 이번 주 wIdx 계산
+  const {anchor}=getCurrentRoutineAndAnchor();
+  const anchorWS=getWeekStart(new Date(anchor));
+  const curWIdx=((Math.round((getWeekStart(new Date())-anchorWS)/(7*86400000))%cycle)+cycle)%cycle;
+
   let html=`<div class="rt-scroll"><table class="rt-table">
     <thead><tr><th class="rt-day-head"></th>`;
-  for(let w=0;w<cycle;w++) html+=`<th class="rt-week-head">${cycle>1?`${w+1}주차`:''}</th>`;
+  for(let w=0;w<cycle;w++){
+    html+=`<th class="rt-week-head">${cycle>1?`${w+1}주차`:''}</th>`;
+  }
   html+=`</tr></thead><tbody>`;
   for(let d=0;d<7;d++){
     html+=`<tr><td class="rt-day-cell">${DAY_SHORT[d]}</td>`;
