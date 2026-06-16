@@ -1712,10 +1712,7 @@ function buildPane(item){
     <!-- ③ 메모 -->
     <div class="modal-divider"></div>
     <div class="m-section-label">메모</div>
-    ${note
-      ? `<div class="note-preview" id="notePreview-${type}" title="탭하여 편집">${linkify(note)}</div>`
-      : ''
-    }
+    <div class="note-preview" id="notePreview-${type}" style="${note?'':'display:none'}">${linkify(note)}</div>
     ${noteTA}
     <div class="modal-actions">
       <div class="memo-del-wrap" id="memoDelWrap-${type}">
@@ -1958,7 +1955,26 @@ function bindPaneEvents(){
     ta.onblur=()=>{ saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); updatePreview(ta.value); };
     ta.onclick=e=>e.stopPropagation();
     const saveBtn=document.querySelector(`[data-notesave="${type}"]`);
-    if(saveBtn) saveBtn.onclick=e=>{ e.stopPropagation(); saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); updatePreview(ta.value); };
+    if(saveBtn) saveBtn.onclick=e=>{
+      e.stopPropagation();
+      const txt=ta.value;
+      saveNote(dk,type,txt);
+      updateMemoDelBtn(type);
+      // 미리보기 즉시 업데이트 (renderSlides 전에)
+      const preview2=document.getElementById(`notePreview-${type}`);
+      const ta2=document.getElementById(`noteTa-${type}`);
+      if(preview2){
+        if(txt.trim()){
+          preview2.innerHTML=linkify(txt);
+          preview2.style.display='';
+          if(ta2) ta2.style.display='none';
+        } else {
+          preview2.style.display='none';
+          if(ta2) ta2.style.display='';
+        }
+      }
+      renderSlides(); // 카드 📝 아이콘 업데이트
+    };
   });
 }
 
