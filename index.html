@@ -3067,7 +3067,47 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   overlay.onclick=e=>{ if(e.target===overlay) overlay.classList.remove('open'); };
 })();
 
-/* ══ INIT ══ */
+/* ══ 뒤로가기 버튼 → 팝업 닫기 ══ */
+(function(){
+  const POPUPS=[
+    {id:'photoViewer',    close:()=>document.getElementById('photoViewer')?.classList.remove('open')},
+    {id:'calPickerOverlay',close:()=>document.getElementById('calPickerOverlay')?.classList.remove('open')},
+    {id:'searchOverlay',  close:()=>document.getElementById('searchOverlay')?.classList.remove('open')},
+    {id:'settingsOverlay',close:()=>document.getElementById('settingsOverlay')?.classList.remove('open')},
+    {id:'gdOverlay',      close:()=>document.getElementById('gdOverlay')?.classList.remove('open')},
+    {id:'modalOverlay',   close:()=>{ if(window.closeModal) closeModal(); }},
+  ];
+
+  function hasOpenPopup(){
+    return POPUPS.some(p=>{ const el=document.getElementById(p.id); return el&&el.classList.contains('open'); });
+  }
+  function closeTopPopup(){
+    for(const p of POPUPS){
+      const el=document.getElementById(p.id);
+      if(el&&el.classList.contains('open')){ p.close(); return true; }
+    }
+    return false;
+  }
+
+  // 페이지 로드 시 히스토리 스택을 깨끗하게: base + popup 두 단계만 유지
+  // base state로 교체 후 popup state를 앞에 추가
+  history.replaceState({type:'base'},'','');
+  history.pushState({type:'popup'},'','');
+
+  // 항상 popup state에 머물도록 유지
+  window.addEventListener('popstate', e=>{
+    if(e.state?.type==='base'){
+      // base로 내려갔다 = 뒤로가기
+      if(closeTopPopup()){
+        // 팝업 닫았으면 다시 popup state로
+        history.pushState({type:'popup'},'','');
+      } else {
+        // 닫을 팝업 없으면 다시 popup state 유지 (앱에서 나가지 않음)
+        history.pushState({type:'popup'},'','');
+      }
+    }
+  });
+})();
 renderSlides();
 (function tick(){const m=new Date();m.setHours(24,0,0,0);setTimeout(()=>{renderSlides();tick();},m-new Date());})();
 </script>
