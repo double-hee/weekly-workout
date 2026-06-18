@@ -723,23 +723,33 @@ ${jsonStr}
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
       document.getElementById('gdOverlay').classList.remove('open');
-      gdSyncDown(true); // 강제 다운로드
+      gdSyncDown(true).then(()=>checkFirstRun()); // 다운로드 후 최초 실행 체크
       return;
     }
     // 저장된 토큰으로 복원
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      // sessionStorage로 처음 열기 vs 새로고침 구분
-      // 처음 열기: sessionStorage 키 없음 → 다운로드 후 키 설정
-      // 새로고침: sessionStorage 키 있음 → 다운로드 스킵
       const isFirstOpen = !sessionStorage.getItem('gd_session');
       sessionStorage.setItem('gd_session', '1');
-      if(isFirstOpen) gdSyncDown(true); // 처음 열릴 때만 다운로드
+      if(isFirstOpen) gdSyncDown(true).then(()=>checkFirstRun());
       return;
     }
-    // 토큰 없으면 로그인 팝업
-    setTimeout(()=>document.getElementById('gdOverlay').classList.add('open'),300);
+    // 토큰 없으면 로그인 팝업 — 닫힌 후 최초 실행 체크
+    setTimeout(()=>{
+      const overlay=document.getElementById('gdOverlay');
+      if(!overlay) { checkFirstRun(); return; }
+      overlay.classList.add('open');
+      // 팝업 닫힘 감지 → 최초 실행 체크
+      const obs=new MutationObserver(()=>{
+        if(!overlay.classList.contains('open')){
+          obs.disconnect();
+          setTimeout(()=>checkFirstRun(), 500);
+        }
+      });
+      obs.observe(overlay,{attributeFilter:['class']});
+      // 나중에 하기(닫기) 버튼도 체크
+    },300);
   });
   </script>
 </head>
@@ -1121,29 +1131,9 @@ function getUserDefault(){
 
 // 기본 루틴 (격주 = 2주 사이클)
 const DEFAULT_ROUTINE = {
-  cycle: 2, // 1 | 2 | 4
-  // weeks[w][d] = [{type,defaultName}] (w=0~cycle-1, d=0~6)
+  cycle: 1,
   weeks: [
-    // 1주차 (짝수주 기준)
-    [
-      [{type:'golf',defaultName:'연습장'}],                              // 일
-      [{type:'run',defaultName:'가벼운 조깅'}], // 월
-      [{type:'run',defaultName:'숏 인터벌'}],                            // 화
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'조깅'}], // 수
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'템포런'}], // 목
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'조깅'}], // 금
-      [{type:'run',defaultName:'조깅'},{type:'golf',defaultName:'연습장'}],  // 토
-    ],
-    // 2주차 (홀수주 기준)
-    [
-      [{type:'run',defaultName:'LSD (장거리)'}],
-      [{type:'run',defaultName:'가벼운 조깅'}],
-      [{type:'run',defaultName:'롱 인터벌'}],
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'조깅'}],
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'템포런'}],
-      [{type:'golf',defaultName:'연습장'},{type:'run',defaultName:'조깅'}],
-      [{type:'run',defaultName:'조깅'},{type:'golf',defaultName:'연습장'}],
-    ],
+    Array.from({length:7}, ()=>[]), // 비어있는 1주 루틴 (최초 설정 전)
   ],
 };
 
@@ -2233,12 +2223,28 @@ function closePicker(){document.getElementById('pickerBackdrop').classList.remov
 const DAY_SHORT=['일','월','화','수','목','금','토'];
 let editRoutine=null;
 
+// 최초 실행 루틴 설정 유도
+function checkFirstRun(){
+  const hasRoutine = !!localStorage.getItem('workout_routine_v2');
+  if(hasRoutine) return;
+  showToast('🎉 운동 루틴을 먼저 설정해보세요!');
+  setTimeout(()=>openSettings(), 800);
+}
+
 function openSettings(){
   editRoutine=JSON.parse(JSON.stringify(getRoutine()));
   injectWD(editRoutine);
 
   document.getElementById('settingsOverlay').classList.add('open');
   document.body.style.overflow='hidden';
+
+  // 최초 실행(기본값 없음) 시 버튼 조건부 표시
+  const hasUserDefault = !!localStorage.getItem('workout_user_default_v1');
+  const hasRoutine = !!localStorage.getItem('workout_routine_v2');
+  const isFirstRun = !hasRoutine;
+  document.getElementById('settingsSaveDefault').style.display = isFirstRun ? '' : '';
+  document.getElementById('settingsReset').style.display = isFirstRun ? 'none' : '';
+  document.getElementById('settingsSave').style.display = isFirstRun ? 'none' : '';
 
   // 버튼 핸들러 먼저 등록 (패널 HTML은 이미 DOM에 있음)
   document.getElementById('settingsClose').onclick=closeSettings;
@@ -2252,8 +2258,20 @@ function openSettings(){
     renderSlides();
   };
   document.getElementById('settingsSaveDefault').onclick=()=>{
-    // 확인 팝업 표시
-    document.getElementById('saveDefaultConfirm').style.display='block';
+    const isFirstRun = !localStorage.getItem('workout_routine_v2');
+    if(isFirstRun){
+      // 최초 실행: 확인 팝업 없이 바로 저장 후 닫기
+      const clean=JSON.parse(JSON.stringify(editRoutine));
+      clean.weeks.forEach(wk=>wk.forEach(day=>day.forEach(item=>{delete item._w;delete item._d;})));
+      saveUserDefault(clean);
+      saveRoutine(clean);
+      renderSlides();
+      closeSettings();
+      showToast('✅ 루틴이 저장됐어요!');
+    } else {
+      // 기존: 확인 팝업 표시
+      document.getElementById('saveDefaultConfirm').style.display='block';
+    }
   };
   document.getElementById('saveDefaultNo').onclick=()=>{
     document.getElementById('saveDefaultConfirm').style.display='none';
