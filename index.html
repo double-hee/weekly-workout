@@ -44,6 +44,30 @@
     .gd-spin{display:inline-block;animation:spin 0.8s linear infinite;}
     .gd-btn-save{background:rgba(163,230,53,0.1);border-color:rgba(163,230,53,0.25);color:var(--lime);}
     .gd-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+
+    /* 온보딩 */
+    .onb-overlay{display:none;position:fixed;inset:0;z-index:700;background:#0A130A;flex-direction:column;align-items:center;justify-content:center;}
+    .onb-overlay.open{display:flex;}
+    .onb-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .onb-track::-webkit-scrollbar{display:none;}
+    .onb-slide{flex:0 0 100%;width:100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center;box-sizing:border-box;}
+    .onb-emoji{font-size:56px;margin-bottom:20px;}
+    .onb-step{font-size:12px;font-weight:800;color:var(--lime);letter-spacing:0.1em;margin-bottom:10px;}
+    .onb-title{font-size:22px;font-weight:800;color:#fff;line-height:1.4;margin-bottom:14px;font-family:'Space Grotesk','Noto Sans KR',sans-serif;}
+    .onb-desc{font-size:14px;color:var(--subtext);line-height:1.7;margin-bottom:28px;}
+    .onb-btn{width:100%;max-width:320px;padding:15px;border:none;border-radius:14px;background:var(--lime);color:#0A130A;font-size:15px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
+    .onb-btn:disabled{background:rgba(255,255,255,0.1);color:var(--subtext);cursor:not-allowed;}
+    .onb-btn:not(:disabled):active{transform:scale(0.97);}
+    .onb-hint{font-size:12px;color:var(--subtext);margin-top:14px;}
+    .onb-skip{font-size:13px;color:var(--subtext);margin-top:16px;text-decoration:underline;cursor:pointer;}
+    .onb-choice{width:100%;max-width:320px;border:1.5px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.15s;text-align:center;}
+    .onb-choice.sel{border-color:var(--lime);background:rgba(163,230,53,0.08);}
+    .onb-choice-icon{font-size:26px;margin-bottom:6px;}
+    .onb-choice-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;}
+    .onb-choice-desc{font-size:11px;color:var(--subtext);line-height:1.5;}
+    .onb-dots{position:absolute;bottom:28px;display:flex;gap:6px;}
+    .onb-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all 0.2s;}
+    .onb-dot.active{background:var(--lime);width:18px;border-radius:3px;}
     .gd-overlay.open{display:flex;}
     .gd-box{background:#1A2B1A;border:1px solid rgba(163,230,53,0.25);border-radius:20px;padding:28px;width:min(310px,90vw);display:flex;flex-direction:column;gap:12px;}
     .gd-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px;}
@@ -523,7 +547,9 @@
     const text = document.getElementById('gdStatusText');
     if(!icon) return;
     clearTimeout(gdStatusTimer);
-    const map = {syncing:['🔄','gd-spin','동기화 중...'],ok:['✅','','동기화 완료'],error:['❌','','동기화 실패'],idle:['☁️','','Drive 동기화']};
+    const savedMode = localStorage.getItem('gd_mode')||'drive';
+    const idleLabel = savedMode==='local' ? ['💾','','로컬 백업'] : ['☁️','','Drive 동기화'];
+    const map = {syncing:['🔄','gd-spin','동기화 중...'],ok:['✅','','동기화 완료'],error:['❌','','동기화 실패'],idle:idleLabel};
     const [ic,cls,tx] = map[s]||map.idle;
     icon.textContent=ic; icon.className=cls; text.textContent=tx;
     if(s==='ok')    gdStatusTimer = setTimeout(()=>gdSetStatus('idle'), 3000);
@@ -690,7 +716,7 @@ ${jsonStr}
         r=await xhrReq('POST','https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body);
       }
       hideLoading();
-      if(r.ok) showBigToast(`✅ 사진 ${keys.length}개 업로드 완료!`);
+      if(r.ok) showBigToast(`✅ 사진 ${keys.length}개 항목 업로드 완료!`);
       else showBigToast('❌ 업로드 실패: '+r.status);
     } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
   }
@@ -732,13 +758,31 @@ ${jsonStr}
 
   // ── 페이지 로드 ──
   window.addEventListener('load',()=>{
+    // 저장된 모드로 상태바 초기화
+    const savedMode = localStorage.getItem('gd_mode')||'drive';
+    const icon=document.getElementById('gdStatusIcon');
+    const text=document.getElementById('gdStatusText');
+    if(icon&&text){
+      if(savedMode==='local'){ icon.textContent='💾'; text.textContent='로컬 백업'; }
+      else { icon.textContent='☁️'; text.textContent='Drive 동기화'; }
+    }
     // OAuth 리디렉션 후 토큰 처리
     if(location.hash.includes('access_token')){
       gdHandleCallback();
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
       document.getElementById('gdOverlay').classList.remove('open');
-      gdSyncDown(true).then(()=>checkFirstRun()); // 다운로드 후 최초 실행 체크
+      gdSyncDown(true).then(()=>{
+        // 온보딩 중 로그인했으면 루틴 단계로 이어가기
+        if(localStorage.getItem('onboard_pending')){
+          localStorage.removeItem('onboard_pending');
+          onbMode='drive';
+          startOnboarding();
+          setTimeout(()=>onbGoTo(3), 100); // 루틴 설정 단계로
+        } else {
+          checkFirstRun();
+        }
+      });
       return;
     }
     // 저장된 토큰으로 복원
@@ -750,26 +794,72 @@ ${jsonStr}
       if(isFirstOpen) gdSyncDown(true).then(()=>checkFirstRun());
       return;
     }
-    // 토큰 없으면 로그인 팝업 — 닫힌 후 최초 실행 체크
-    setTimeout(()=>{
-      const overlay=document.getElementById('gdOverlay');
-      if(!overlay) { checkFirstRun(); return; }
-      overlay.classList.add('open');
-      // 팝업 닫힘 감지 → 최초 실행 체크
-      const obs=new MutationObserver(()=>{
-        if(!overlay.classList.contains('open')){
-          obs.disconnect();
-          setTimeout(()=>checkFirstRun(), 500);
-        }
-      });
-      obs.observe(overlay,{attributeFilter:['class']});
-      // 나중에 하기(닫기) 버튼도 체크
-    },300);
+    // 토큰 없으면 최초 실행 체크 (온보딩이 로그인 안내까지 담당)
+    checkFirstRun();
   });
   </script>
 </head>
 <body>
+<!-- 최초 실행 온보딩 -->
+<div class="onb-overlay" id="onbOverlay">
+  <div class="onb-track" id="onbTrack">
+
+    <!-- 0: 환영 -->
+    <div class="onb-slide">
+      <div class="onb-emoji">🏋️</div>
+      <div class="onb-title">운동 일정 앱에<br>오신 것을 환영해요!</div>
+      <div class="onb-desc">시작 전에 몇 가지를 설정해드릴게요.</div>
+      <button class="onb-btn" id="onbStartBtn">시작하기</button>
+    </div>
+
+    <!-- 1: 데이터 관리 방식 -->
+    <div class="onb-slide">
+      <div class="onb-title">데이터를 어떻게 보관할까요?</div>
+      <div class="onb-choice" id="onbChoiceDrive">
+        <div class="onb-choice-icon">☁️</div>
+        <div class="onb-choice-title">Google Drive 동기화</div>
+        <div class="onb-choice-desc">여러 기기에서 같은 데이터<br>자동 백업 · 분실 걱정 없음</div>
+      </div>
+      <div class="onb-choice" id="onbChoiceLocal">
+        <div class="onb-choice-icon">💾</div>
+        <div class="onb-choice-title">이 기기에만 저장</div>
+        <div class="onb-choice-desc">로그인 없이 바로 시작<br>직접 파일로 백업 가능</div>
+      </div>
+      <button class="onb-btn" id="onbNext1Btn" disabled>다음</button>
+    </div>
+
+    <!-- 2: Google 로그인 -->
+    <div class="onb-slide">
+      <div class="onb-title">Google 계정으로<br>로그인해요</div>
+      <div class="onb-desc">데이터가 Drive에 안전하게 보관되고<br>기기 어디서나 동기화돼요.</div>
+      <button class="onb-btn" id="onbLoginBtn">🔑 Google로 로그인</button>
+      <div class="onb-hint">로그인하면 자동으로 다음 단계로 넘어가요.</div>
+    </div>
+
+    <!-- 3: 루틴 설정 -->
+    <div class="onb-slide">
+      <div class="onb-title">운동 루틴을<br>설정해요</div>
+      <div class="onb-desc">요일별 운동 계획을 미리 설정하면<br>매일 무슨 운동을 할지 앱이 알아서 알려줄게요.</div>
+      <button class="onb-btn" id="onbRoutineBtn">첫 루틴 만들러 가기</button>
+      <div class="onb-hint">지금 건너뛰고 나중에 설정할 수도 있어요.<br>루틴 없이 날짜별 카드에서 직접 입력도 가능해요.</div>
+      <div class="onb-skip" id="onbSkipBtn">건너뛰기</div>
+    </div>
+
+    <!-- 4: 완료 -->
+    <div class="onb-slide">
+      <div class="onb-emoji">🎉</div>
+      <div class="onb-title">설정 완료!</div>
+      <div class="onb-desc">모든 준비가 완료되었어요.<br>지금 바로 첫 화면에서 확인해 보세요.</div>
+      <button class="onb-btn" id="onbFinishBtn">시작하기</button>
+    </div>
+
+  </div>
+  <div class="onb-dots" id="onbDots"></div>
+</div>
+
 <!-- Drive 동기화 바 -->
+<input type="file" id="importDataInput" accept=".json" style="display:none">
+<input type="file" id="importPhotosInput" accept=".json" style="display:none">
 <div class="gd-bar">
   <button class="gd-btn" id="gdOpenBtn">
     <span id="gdStatusIcon">☁️</span>
@@ -795,17 +885,58 @@ ${jsonStr}
 
 <div class="gd-overlay" id="gdOverlay">
   <div class="gd-box">
-    <div class="gd-title">☁️ Google Drive 동기화</div>
-    <div class="gd-desc">로그인하면 운동 기록이 자동으로<br>Google Drive에 동기화돼요.<br>어느 기기에서나 같은 데이터를 써요.</div>
-    <button class="gd-action-btn gd-save-btn" id="gdLoginBtn">🔑 Google로 로그인</button>
-    <div style="border-top:1px solid rgba(255,255,255,0.08);margin:4px 0;padding-top:12px;">
-      <div style="font-size:11px;color:var(--lime);font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">📸 사진 일괄 동기화 (폰 교체 등)</div>
-      <div style="display:flex;gap:8px;">
-        <button class="gd-action-btn gd-load-btn" id="gdPhotoUploadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↑ 사진 올리기</button>
-        <button class="gd-action-btn gd-load-btn" id="gdPhotoDownloadBtn" style="flex:1;padding:9px;font-size:12px;">☁️↓ 사진 받기</button>
+
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:17px;font-weight:800;color:#fff;font-family:'Space Grotesk',sans-serif;">데이터 관리</div>
+      <button class="gd-close-btn" id="gdCloseBtn" style="text-decoration:none;font-size:18px;color:var(--subtext);background:none;border:none;cursor:pointer;">✕</button>
+    </div>
+
+    <!-- 토글 스위치 -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.06);border-radius:12px;padding:4px;">
+      <button id="gdToggleDrive" onclick="gdSetMode('drive')" style="flex:1;padding:7px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;background:rgba(163,230,53,0.2);color:var(--lime);">☁️ 자동 동기화</button>
+      <button id="gdToggleLocal" onclick="gdSetMode('local')" style="flex:1;padding:7px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;background:none;color:var(--subtext);">💾 로컬 백업</button>
+    </div>
+
+    <!-- 섹션 1: Google Drive 자동 동기화 -->
+    <div id="gdSectionDrive" style="background:rgba(163,230,53,0.06);border:1px solid rgba(163,230,53,0.15);border-radius:14px;padding:14px;margin-bottom:10px;transition:opacity 0.2s;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:18px;">☁️</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--lime);">Google Drive 자동 동기화</div>
+          <div style="font-size:11px;color:var(--subtext);margin-top:1px;">기기간 실시간 동기화 · 자동 백업</div>
+        </div>
+      </div>
+      <button class="gd-action-btn gd-save-btn" id="gdLoginBtn" style="margin-bottom:8px;">🔑 Google로 로그인</button>
+      <div style="display:flex;gap:6px;">
+        <button class="gd-action-btn gd-load-btn" id="gdPhotoUploadBtn" style="flex:1;padding:8px;font-size:11px;">📸↑ 사진 올리기</button>
+        <button class="gd-action-btn gd-load-btn" id="gdPhotoDownloadBtn" style="flex:1;padding:8px;font-size:11px;">📸↓ 사진 받기</button>
       </div>
     </div>
-    <button class="gd-close-btn" id="gdCloseBtn">나중에 하기</button>
+
+    <!-- 섹션 2: 로컬 백업 -->
+    <div id="gdSectionLocal" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px;transition:opacity 0.2s;opacity:0.35;pointer-events:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:18px;">💾</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);">로컬 백업</div>
+          <div style="font-size:11px;color:var(--subtext);margin-top:1px;">Drive 없이 파일로 직접 저장·복원</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--subtext);white-space:nowrap;flex-shrink:0;">📤 내보내기</span>
+          <button class="gd-action-btn gd-load-btn" id="exportDataBtn" style="padding:7px 10px;font-size:11px;white-space:nowrap;">운동기록</button>
+          <button class="gd-action-btn gd-load-btn" id="exportPhotosBtn" style="padding:7px 10px;font-size:11px;white-space:nowrap;">사진</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--subtext);white-space:nowrap;flex-shrink:0;">📥 가져오기</span>
+          <button class="gd-action-btn gd-load-btn" id="importDataBtn" style="padding:7px 10px;font-size:11px;white-space:nowrap;">운동기록</button>
+          <button class="gd-action-btn gd-load-btn" id="importPhotosBtn" style="padding:7px 10px;font-size:11px;white-space:nowrap;">사진</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -931,12 +1062,12 @@ const DONE_KEY   = 'workout_done_v4';      // {dateKey:type -> true}
 // ══ 운동 타입 중앙 정의 ══
 // 새 운동 추가 시 여기만 수정하면 CSS/함수/피커 모두 자동 반영
 const WORKOUT_TYPES = {
-  run:      { icon:'🏃', name:'러닝',     color:'var(--sky)',   rgb:'56,189,248',  defName:'조깅',        opts:['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'] },
-  golf:     { icon:'⛳', name:'골프',     color:'var(--lime)',  rgb:'163,230,53',  defName:'연습장',       opts:['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'] },
+  strength: { icon:'💪', name:'보강운동', color:'var(--rose)',  rgb:'251,113,133', defName:'런지',         opts:['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'] },
   swim:     { icon:'🏊', name:'수영',     color:'var(--aqua)',  rgb:'34,211,238',  defName:'자유형',       opts:['자유형','배영','평영','접영','혼합 수영','수영 인터벌'] },
   bike:     { icon:'🚴', name:'자전거',   color:'var(--green)', rgb:'74,222,128',  defName:'로드 라이딩',   opts:['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'] },
+  run:      { icon:'🏃', name:'러닝',     color:'var(--sky)',   rgb:'56,189,248',  defName:'조깅',        opts:['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'] },
   tennis:   { icon:'🎾', name:'테니스',   color:'var(--amber)', rgb:'251,191,36',  defName:'랠리',         opts:['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'] },
-  strength: { icon:'💪', name:'보강운동', color:'var(--rose)',  rgb:'251,113,133', defName:'런지',         opts:['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'] },
+  golf:     { icon:'⛳', name:'골프',     color:'var(--lime)',  rgb:'163,230,53',  defName:'연습장',       opts:['연습장','드라이빙 레인지','필드 라운딩','스크린 골프','쇼트게임 연습','퍼팅 연습'] },
 };
 const ALL_WORKOUT_TYPES = Object.keys(WORKOUT_TYPES);
 
@@ -2252,12 +2383,215 @@ function closePicker(){document.getElementById('pickerBackdrop').classList.remov
 const DAY_SHORT=['일','월','화','수','목','금','토'];
 let editRoutine=null;
 
+// 💾 로컬 백업 — 내보내기/가져오기
+const BACKUP_KEYS=[
+  'workout_notes_v4','workout_actual_v4','workout_custom_v4',
+  'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
+  'workout_removed_v1','workout_tab_order_v1','workout_routine_v2',
+  'workout_routine_history_v1','workout_user_default_v1'
+];
+
+function downloadJSON(obj, filename){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// 운동 데이터 내보내기
+function exportData(){
+  const payload={};
+  BACKUP_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v) payload[k]=v;});
+  const date=new Date().toISOString().slice(0,10);
+  downloadJSON({version:1,date,data:payload},`workout-backup-${date}.json`);
+  showBigToast('📤 운동 데이터 내보내기 완료!');
+}
+
+// 운동 데이터 가져오기
+function importData(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const obj=JSON.parse(e.target.result);
+      const payload=obj.data||obj;
+      let count=0;
+      Object.entries(payload).forEach(([k,v])=>{
+        if(BACKUP_KEYS.includes(k)){ localStorage.setItem(k,v); count++; }
+      });
+      showBigToast(`✅ 데이터 ${count}개 항목 가져오기 완료! 새로고침합니다...`);
+      setTimeout(()=>location.reload(),1800);
+    } catch(err){ showBigToast('❌ 파일 형식이 올바르지 않아요.'); }
+  };
+  reader.readAsText(file);
+}
+
+// 사진 내보내기
+async function exportPhotos(){
+  showLoading('사진 수집 중...');
+  try {
+    const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
+    const all=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly');const st=tx.objectStore('photos');const result={};const cr=st.openCursor();cr.onsuccess=e=>{const cursor=e.target.result;if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result);};cr.onerror=rej;});
+    const keys=Object.keys(all);
+    if(!keys.length){hideLoading();showBigToast('⚠️ 저장된 사진이 없어요.');return;}
+    hideLoading();
+    const date=new Date().toISOString().slice(0,10);
+    downloadJSON({version:1,date,photos:all},`workout-photos-${date}.json`);
+    showBigToast(`📤 사진 ${keys.length}개 항목 내보내기 완료!`);
+  } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
+}
+
+// 사진 가져오기
+async function importPhotos(file){
+  showLoading('사진 가져오는 중...');
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try {
+      const obj=JSON.parse(e.target.result);
+      const photos=obj.photos||obj;
+      const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e2=>res(e2.target.result);r.onerror=rej;});
+      await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');const st=tx.objectStore('photos');Object.entries(photos).forEach(([k,v])=>st.put(v,k));tx.oncomplete=res;tx.onerror=rej;});
+      hideLoading();
+      showBigToast(`✅ 사진 ${Object.keys(photos).length}개 항목 가져오기 완료!`);
+    } catch(err){hideLoading();showBigToast('❌ 파일 형식이 올바르지 않아요.');}
+  };
+  reader.readAsText(file);
+}
+
+// 데이터 관리 팝업 토글 모드
+function gdSetMode(mode){
+  const drive=document.getElementById('gdSectionDrive');
+  const local=document.getElementById('gdSectionLocal');
+  const btnDrive=document.getElementById('gdToggleDrive');
+  const btnLocal=document.getElementById('gdToggleLocal');
+  const icon=document.getElementById('gdStatusIcon');
+  const text=document.getElementById('gdStatusText');
+  if(drive&&local){
+    if(mode==='drive'){
+      drive.style.opacity='1'; drive.style.pointerEvents='';
+      local.style.opacity='0.35'; local.style.pointerEvents='none';
+      if(btnDrive){btnDrive.style.background='rgba(163,230,53,0.2)';btnDrive.style.color='var(--lime)';}
+      if(btnLocal){btnLocal.style.background='none';btnLocal.style.color='var(--subtext)';}
+    } else {
+      local.style.opacity='1'; local.style.pointerEvents='';
+      drive.style.opacity='0.35'; drive.style.pointerEvents='none';
+      if(btnLocal){btnLocal.style.background='rgba(255,255,255,0.12)';btnLocal.style.color='var(--text)';}
+      if(btnDrive){btnDrive.style.background='none';btnDrive.style.color='var(--subtext)';}
+    }
+  }
+  // 상태바 업데이트
+  if(icon&&text){
+    if(mode==='drive'){
+      icon.textContent='☁️'; text.textContent='Drive 동기화';
+    } else {
+      icon.textContent='💾'; text.textContent='로컬 백업';
+    }
+  }
+  // localStorage에 저장 (다음 앱 열 때도 유지)
+  localStorage.setItem('gd_mode', mode);
+}
+
 // 최초 실행 루틴 설정 유도
 function checkFirstRun(){
   const hasRoutine = !!localStorage.getItem('workout_routine_v2');
-  if(hasRoutine) return;
-  showToast('🎉 운동 루틴을 먼저 설정해보세요!');
-  setTimeout(()=>openSettings(), 800);
+  const onboardDone = !!localStorage.getItem('onboard_done_v1');
+  if(hasRoutine || onboardDone) return;
+  startOnboarding();
+}
+
+/* ══ 온보딩 ══ */
+let onbSlideIdx=0;
+let onbMode='drive'; // 'drive' | 'local'
+function startOnboarding(){
+  const overlay=document.getElementById('onbOverlay');
+  if(!overlay) return;
+  overlay.classList.add('open');
+  onbSlideIdx=0;
+  renderOnbDots();
+  bindOnboarding();
+}
+// 실제 슬라이드는 0~4 (환영,선택,로그인,루틴,완료) 고정
+// local 모드일 때는 점만 4개로 표시(로그인 제외), drive는 5개
+function onbSlideCount(){
+  return onbMode==='local' ? 4 : 5;
+}
+function renderOnbDots(){
+  const dotsEl=document.getElementById('onbDots');
+  const count=onbSlideCount();
+  const visibleIdx=onbCurrentVisibleIdx();
+  dotsEl.innerHTML=Array.from({length:count},(_, i)=>
+    `<div class="onb-dot${i===visibleIdx?' active':''}"></div>`
+  ).join('');
+}
+// 실제 슬라이드 인덱스(0~4) → 점 인덱스로 변환 (local모드면 2번 로그인 슬라이드 제외하고 카운트)
+function onbCurrentVisibleIdx(){
+  if(onbMode==='local' && onbSlideIdx>=3) return onbSlideIdx-1;
+  return onbSlideIdx;
+}
+function onbGoTo(idx){
+  const track=document.getElementById('onbTrack');
+  const slides=track.children;
+  onbSlideIdx=idx;
+  slides[idx].scrollIntoView({behavior:'smooth', inline:'start'});
+  renderOnbDots();
+}
+function bindOnboarding(){
+  const track=document.getElementById('onbTrack');
+  const slides=track.children;
+
+  // 좌우 스와이프 시 dots/인덱스 동기화
+  let scrollTimer=null;
+  track.onscroll=()=>{
+    clearTimeout(scrollTimer);
+    scrollTimer=setTimeout(()=>{
+      const idx=Math.round(track.scrollLeft/track.clientWidth);
+      onbSlideIdx=idx;
+      renderOnbDots();
+    },100);
+  };
+
+  document.getElementById('onbStartBtn').onclick=()=>onbGoTo(1);
+
+  // 데이터 관리 방식 선택
+  const choiceDrive=document.getElementById('onbChoiceDrive');
+  const choiceLocal=document.getElementById('onbChoiceLocal');
+  const next1Btn=document.getElementById('onbNext1Btn');
+  choiceDrive.onclick=()=>{
+    onbMode='drive';
+    choiceDrive.classList.add('sel'); choiceLocal.classList.remove('sel');
+    next1Btn.disabled=false;
+  };
+  choiceLocal.onclick=()=>{
+    onbMode='local';
+    choiceLocal.classList.add('sel'); choiceDrive.classList.remove('sel');
+    next1Btn.disabled=false;
+  };
+  next1Btn.onclick=()=>{
+    localStorage.setItem('gd_mode', onbMode);
+    if(onbMode==='drive') onbGoTo(2); // 로그인 단계로
+    else onbGoTo(3); // 루틴 단계로 (로그인 스킵)
+  };
+
+  // 로그인 버튼 (Drive 모드일 때만 보이는 슬라이드)
+  document.getElementById('onbLoginBtn').onclick=()=>{
+    // 로그인은 OAuth 리디렉션 — 돌아온 후 자동으로 온보딩 이어가도록 플래그 저장
+    localStorage.setItem('onboard_pending', '1');
+    if(window.gdLogin) gdLogin();
+  };
+
+  // 루틴 설정 버튼
+  document.getElementById('onbRoutineBtn').onclick=()=>{
+    document.getElementById('onbOverlay').classList.remove('open');
+    openSettings();
+    // 루틴 저장 완료 후 온보딩 마지막 단계로 돌아오도록 플래그
+    localStorage.setItem('onboard_awaiting_routine', '1');
+  };
+  document.getElementById('onbSkipBtn').onclick=()=>onbGoTo(4); // 완료 슬라이드(고정 인덱스)
+
+  document.getElementById('onbFinishBtn').onclick=()=>{
+    localStorage.setItem('onboard_done_v1', '1');
+    document.getElementById('onbOverlay').classList.remove('open');
+  };
 }
 
 // iOS Safari 스토리지 지속성 요청 (7일 자동 삭제 방지 시도)
@@ -2301,7 +2635,17 @@ function openSettings(){
       saveRoutine(clean);
       renderSlides();
       closeSettings();
-      showToast('✅ 루틴이 저장됐어요!');
+      // 온보딩 중이었으면 완료 단계로 이어가기
+      if(localStorage.getItem('onboard_awaiting_routine')){
+        localStorage.removeItem('onboard_awaiting_routine');
+        const overlay=document.getElementById('onbOverlay');
+        if(overlay){
+          overlay.classList.add('open');
+          onbGoTo(4); // 완료 슬라이드
+        }
+      } else {
+        showToast('✅ 루틴이 저장됐어요!');
+      }
     } else {
       // 기존: 확인 팝업 표시
       document.getElementById('saveDefaultConfirm').style.display='block';
@@ -3124,7 +3468,12 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
 (function(){
   const overlay=document.getElementById('gdOverlay');
   const safe=(id,fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
-  safe('gdOpenBtn',         ()=>overlay.classList.add('open'));
+  safe('gdOpenBtn', ()=>{
+    overlay.classList.add('open');
+    // 저장된 모드 복원
+    const savedMode = localStorage.getItem('gd_mode')||'drive';
+    gdSetMode(savedMode);
+  });
   safe('gdCloseBtn',        ()=>overlay.classList.remove('open'));
   safe('gdLoginBtn', ()=>{
     if(window.gdToken){
@@ -3141,6 +3490,14 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   });
   safe('gdPhotoUploadBtn',  ()=>{ overlay.classList.remove('open'); window.gdUploadAllPhotos && window.gdUploadAllPhotos(); });
   safe('gdPhotoDownloadBtn',()=>{ overlay.classList.remove('open'); window.gdDownloadAllPhotos && window.gdDownloadAllPhotos(); });
+  safe('exportDataBtn',   ()=>{ overlay.classList.remove('open'); exportData(); });
+  safe('importDataBtn',   ()=>{ overlay.classList.remove('open'); document.getElementById('importDataInput').click(); });
+  safe('exportPhotosBtn', ()=>{ overlay.classList.remove('open'); exportPhotos(); });
+  safe('importPhotosBtn', ()=>{ overlay.classList.remove('open'); document.getElementById('importPhotosInput').click(); });
+
+  // 파일 선택 핸들러
+  document.getElementById('importDataInput').onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; };
+  document.getElementById('importPhotosInput').onchange=e=>{ if(e.target.files[0]) importPhotos(e.target.files[0]); e.target.value=''; };
   overlay.onclick=e=>{ if(e.target===overlay) overlay.classList.remove('open'); };
 })();
 
