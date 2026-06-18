@@ -10,7 +10,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="운동일정">
   <meta name="theme-color" content="#0D1810">
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" id="manifestLink">
+  <script>
+  // iOS Safari PWA에서 OAuth가 Safari로 이탈하는 문제 방지
+  // iOS에서는 manifest를 비활성화해서 standalone 모드 진입 차단
+  // → OAuth 리디렉션이 같은 컨텍스트에서 작동
+  (function(){
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if(isIOS){
+      const link = document.getElementById('manifestLink');
+      if(link) link.setAttribute('rel', 'no-manifest');
+    }
+  })();
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -651,7 +663,10 @@ ${jsonStr}
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden') gdSyncUpSync();});
   window.addEventListener('pagehide', gdSyncUpSync);
+  // beforeunload: iOS Safari 미지원이나 일부 브라우저용으로 유지
   window.addEventListener('beforeunload', gdSyncUpSync);
+  // iOS Safari: focus 잃을 때도 저장 시도 (앱 전환 시)
+  window.addEventListener('blur', ()=>{ if(gdDirty) gdSyncUpSync(); });
 
   // ── 사진 업로드/다운로드 ──
   async function gdUploadAllPhotos() {
@@ -977,13 +992,27 @@ function compressImage(dataUrl){
 /* ══ INDEXEDDB (사진 저장) ══ */
 const IDB_NAME='workout_photos_db', IDB_STORE='photos', IDB_VER=1;
 let _idb=null;
-function openIDB(){
+function openIDB(retries=2){
   if(_idb) return Promise.resolve(_idb);
   return new Promise((res,rej)=>{
-    const req=indexedDB.open(IDB_NAME,IDB_VER);
-    req.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess=e=>{_idb=e.target.result;res(_idb);};
-    req.onerror=e=>rej(e);
+    try {
+      const req=indexedDB.open(IDB_NAME,IDB_VER);
+      req.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
+      req.onsuccess=e=>{_idb=e.target.result;res(_idb);};
+      req.onerror=e=>{
+        // iOS Safari IDB 간헐적 오류 → 재시도
+        if(retries>0){
+          _idb=null;
+          setTimeout(()=>openIDB(retries-1).then(res).catch(rej),300);
+        } else rej(e);
+      };
+      req.onblocked=()=>{
+        if(retries>0){
+          _idb=null;
+          setTimeout(()=>openIDB(retries-1).then(res).catch(rej),500);
+        } else rej(new Error('IDB blocked'));
+      };
+    } catch(e){ rej(e); }
   });
 }
 
@@ -2229,6 +2258,11 @@ function checkFirstRun(){
   if(hasRoutine) return;
   showToast('🎉 운동 루틴을 먼저 설정해보세요!');
   setTimeout(()=>openSettings(), 800);
+}
+
+// iOS Safari 스토리지 지속성 요청 (7일 자동 삭제 방지 시도)
+if(navigator.storage && navigator.storage.persist){
+  navigator.storage.persist().catch(()=>{});
 }
 
 function openSettings(){
