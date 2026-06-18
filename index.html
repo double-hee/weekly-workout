@@ -80,8 +80,8 @@
     .page-header h1 span{color:var(--lime);}
     .header-meta{margin-top:10px;font-size:13px;color:var(--subtext);display:flex;gap:16px;flex-wrap:wrap;}
     .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;align-items:center;}
-    .filter-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;color:var(--text);transition:all 0.15s;user-select:none;}
-    .filter-btn.off{opacity:0.3;filter:saturate(0.2);}
+    .filter-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);cursor:pointer;font-size:16px;transition:all 0.15s;user-select:none;}
+    .filter-btn.off{opacity:0.25;filter:saturate(0.1);}
     .filter-btn-all{font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:none;cursor:pointer;color:var(--subtext);font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
     .filter-btn-all:hover{color:var(--text);}
     .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
@@ -1332,8 +1332,8 @@ function buildSlideHTML(ws){
       <button class="filter-btn-all" data-filter-offset="${offset}" data-filter-action="all">전체</button>
       <button class="filter-btn-all" data-filter-offset="${offset}" data-filter-action="none">해제</button>
       ${ALL_WORKOUT_TYPES.map(t=>`
-        <button class="filter-btn${activeFilters.has(t)?'':' off'}" data-filter-offset="${offset}" data-filter-type="${t}">
-          <span>${typeIcon(t)}</span><span>${typeName(t)}</span>
+        <button class="filter-btn${activeFilters.has(t)?'':' off'}" data-filter-offset="${offset}" data-filter-type="${t}" title="${typeName(t)}">
+          ${typeIcon(t)}
         </button>`).join('')}
     </div>
   </div>
