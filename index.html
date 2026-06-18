@@ -79,8 +79,11 @@
     .page-header h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(24px,5vw,40px);font-weight:700;color:#fff;line-height:1.15;letter-spacing:-0.02em;}
     .page-header h1 span{color:var(--lime);}
     .header-meta{margin-top:10px;font-size:13px;color:var(--subtext);display:flex;gap:16px;flex-wrap:wrap;}
-    .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;}
-    .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--subtext);}
+    .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;align-items:center;}
+    .filter-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);cursor:pointer;font-size:12px;font-family:'Noto Sans KR',sans-serif;color:var(--text);transition:all 0.15s;user-select:none;}
+    .filter-btn.off{opacity:0.3;filter:saturate(0.2);}
+    .filter-btn-all{font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:none;cursor:pointer;color:var(--subtext);font-family:'Noto Sans KR',sans-serif;transition:all 0.15s;}
+    .filter-btn-all:hover{color:var(--text);}
     .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 
     /* Cards */
@@ -1201,8 +1204,18 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
   const restItems=plan.filter(p=>p.type==='rest');
   allItems.push(...restItems);
 
+  // 필터 적용
+  const originalNonRest=allItems.filter(item=>item.type!=='rest');
+  const filteredNonRest=originalNonRest.filter(item=>activeFilters.has(item.type));
+  const restItems2=allItems.filter(item=>item.type==='rest');
+
+  // 원래 운동이 없는 날(진짜 휴식)만 REST 표시
+  // 원래 운동이 있는 날은 필터로 가려지면 REST도 숨김
+  const showRest = originalNonRest.length === 0;
+  const filteredItems=[...filteredNonRest, ...(showRest ? restItems2 : [])];
+
   let actHTML='';
-  allItems.forEach(item=>{
+  filteredItems.forEach(item=>{
     if(item.type==='rest'){
       actHTML+=`<div class="activity">
         <span class="activity-icon">${item.icon}</span>
@@ -1235,7 +1248,8 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
   });
 
   // 아무 항목도 없으면 휴식 표시
-  if(!actHTML){
+  if(!actHTML && originalNonRest.length===0){
+    // 원래 운동이 없는 진짜 휴식일만 REST 표시
     actHTML=`<div class="activity" style="cursor:default">
       <span class="activity-icon">💤</span>
       <div class="activity-body"><div class="activity-title">휴식</div></div>
@@ -1269,7 +1283,10 @@ function buildSlideHTML(ws){
   const lbl=diff===0?`${ws.getFullYear()} · Week ${getWeekNum(ws)}`:diff===-1?'지난 주':diff===1?'다음 주':diff<0?`${Math.abs(diff)}주 전`:`${diff}주 후`;
 
   // 요약: done 기준 (plan + extra 타입 모두 포함)
-  let golfDone=0,runDone=0,swimDone=0,tennisDone=0,bikeDone=0,totalDone=0;
+  // 필터 연동 카운팅
+  const doneCounts={}; // type → count
+  ALL_WORKOUT_TYPES.forEach(t=>doneCounts[t]=0);
+  let totalDone=0;
   for(let i=0;i<7;i++){
     const d=new Date(ws);d.setDate(ws.getDate()+i);
     const dk=dkey(d);
@@ -1282,18 +1299,9 @@ function buildSlideHTML(ws){
     const removedTypes=getRemovedTypes(dk);
     const planTypes=plan.filter(p=>p.type!=='rest'&&!removedTypes.includes(p.type)).map(p=>p.type);
     const extraTypes=getExtraTypes(dk,planTypes);
-    const allTypes=[...new Set([...planTypes,...extraTypes])];
+    const allTypes=[...new Set([...planTypes,...extraTypes])].filter(t=>activeFilters.has(t));
     let dayDone=false;
-    allTypes.forEach(t=>{
-      if(getDone(dk,t)){
-        dayDone=true;
-        if(t==='golf')   golfDone++;
-        if(t==='run')    runDone++;
-        if(t==='swim')   swimDone++;
-        if(t==='tennis') tennisDone++;
-        if(t==='bike')   bikeDone++;
-      }
-    });
+    allTypes.forEach(t=>{ if(getDone(dk,t)){ dayDone=true; doneCounts[t]=(doneCounts[t]||0)+1; } });
     if(dayDone) totalDone++;
   }
 
@@ -1320,24 +1328,21 @@ function buildSlideHTML(ws){
       <span>${ws.getMonth()+1}월 ${ws.getDate()}일 (일) — ${we.getMonth()+1}월 ${we.getDate()}일 (토)</span>
       ${tm?'<span>·</span>'+tm:''}
     </div>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--lime)"></div>골프</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--sky)"></div>러닝</div>
+    <div class="legend" id="filterBar-${offset}">
+      <button class="filter-btn-all" data-filter-offset="${offset}" data-filter-action="all">전체</button>
+      <button class="filter-btn-all" data-filter-offset="${offset}" data-filter-action="none">해제</button>
+      ${ALL_WORKOUT_TYPES.map(t=>`
+        <button class="filter-btn${activeFilters.has(t)?'':' off'}" data-filter-offset="${offset}" data-filter-type="${t}">
+          <span>${typeIcon(t)}</span><span>${typeName(t)}</span>
+        </button>`).join('')}
     </div>
   </div>
   <div class="schedule-grid">${cards}</div>
   <div class="summary">
     <div class="summary-stat"><div class="summary-label">실제 기록</div><div class="summary-num">${totalDone}</div><div class="summary-desc">운동한 날</div></div>
+    ${ALL_WORKOUT_TYPES.filter(t=>activeFilters.has(t)&&doneCounts[t]>0).map(t=>`
     <div class="summary-divider"></div>
-    <div class="summary-stat"><div class="summary-num" style="color:var(--lime)">${golfDone}</div><div class="summary-desc">⛳ 골프 완료</div></div>
-    <div class="summary-divider"></div>
-    <div class="summary-stat"><div class="summary-num" style="color:var(--sky)">${runDone}</div><div class="summary-desc">🏃 러닝 완료</div></div>
-    ${swimDone>0||tennisDone>0||bikeDone>0?`
-    <div class="summary-divider"></div>
-    ${swimDone>0?`<div class="summary-stat"><div class="summary-num" style="color:var(--aqua)">${swimDone}</div><div class="summary-desc">🏊 수영 완료</div></div>`:''}
-    ${tennisDone>0?`<div class="summary-stat"><div class="summary-num" style="color:var(--amber)">${tennisDone}</div><div class="summary-desc">🎾 테니스 완료</div></div>`:''}
-    ${bikeDone>0?`<div class="summary-stat"><div class="summary-num" style="color:var(--green)">${bikeDone}</div><div class="summary-desc">🚴 자전거 완료</div></div>`:''}
-    `:''}
+    <div class="summary-stat"><div class="summary-num" style="color:${typeColor(t)}">${doneCounts[t]}</div><div class="summary-desc">${typeIcon(t)} ${typeName(t)} 완료</div></div>`).join('')}
   </div>
   <div class="swipe-hint">← 좌우로 밀어 주간 이동 →</div>`;
 }
@@ -1345,6 +1350,8 @@ function buildSlideHTML(ws){
 /* ══ WEEK NAV ══ */
 const now0=new Date();now0.setHours(0,0,0,0);
 let curWeek=getWeekStart(now0);
+// 필터 상태 — ALL_WORKOUT_TYPES 기반으로 자동 관리
+let activeFilters=new Set(ALL_WORKOUT_TYPES); // 기본: 전체 선택
 const track=document.getElementById('pageTrack');
 const slides=[document.getElementById('slidePrev'),document.getElementById('slideCurr'),document.getElementById('slideNext')];
 
@@ -1367,9 +1374,27 @@ function wireNav(){
   document.querySelectorAll('#settingsBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openSettings();});
   document.querySelectorAll('#searchBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openSearch();});
   document.querySelectorAll('#navCenter').forEach(b=>b.onclick=e=>{
-    if(e.target.closest('.this-week-btn')) return; // 이번주로 버튼 클릭은 제외
+    if(e.target.closest('.this-week-btn')) return;
     e.stopPropagation();
     openCalPicker();
+  });
+  // 필터 버튼
+  document.querySelectorAll('.filter-btn[data-filter-type]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const t=btn.dataset.filterType;
+      if(activeFilters.has(t)) activeFilters.delete(t);
+      else activeFilters.add(t);
+      renderSlides();
+    };
+  });
+  document.querySelectorAll('.filter-btn-all[data-filter-action]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      if(btn.dataset.filterAction==='all') activeFilters=new Set(ALL_WORKOUT_TYPES);
+      else activeFilters=new Set();
+      renderSlides();
+    };
   });
   document.querySelectorAll('.day-card[data-dayindex]').forEach(card=>{
     card.onclick=e=>{
