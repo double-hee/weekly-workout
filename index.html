@@ -13,11 +13,12 @@
   <link rel="manifest" href="manifest.json" id="manifestLink">
   <script>
   // iOS Safari PWA에서 OAuth가 Safari로 이탈하는 문제 방지
-  // iOS에서는 manifest를 비활성화해서 standalone 모드 진입 차단
-  // → OAuth 리디렉션이 같은 컨텍스트에서 작동
+  // 로컬 백업 모드 사용자는 OAuth가 필요 없으므로 manifest 유지 (PWA 전체화면 혜택 유지)
+  // Drive 모드이거나 아직 선택 전(최초 실행)이면 manifest 비활성화로 OAuth 안전성 확보
   (function(){
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    if(isIOS){
+    const gdMode = localStorage.getItem('gd_mode');
+    if(isIOS && gdMode!=='local'){
       const link = document.getElementById('manifestLink');
       if(link) link.setAttribute('rel', 'no-manifest');
     }
@@ -648,7 +649,8 @@
   // ── localStorage dirty 감지 ──
   localStorage.setItem = function(k,v) {
     _lsSet(k,v);
-    if(gdToken && SYNC_KEYS.includes(k)) {
+    const mode=localStorage.getItem('gd_mode')||'drive';
+    if(gdToken && mode==='drive' && SYNC_KEYS.includes(k)) {
       gdDirty=true;
       clearTimeout(gdSaveTimer);
       gdSaveTimer = setTimeout(gdSyncUp, 2000);
@@ -658,6 +660,8 @@
   // ── 페이지 닫힘/종료 시 keepalive 업로드 (항상 실행) ──
   function gdSyncUpSync() {
     if(!gdToken) return;
+    const mode=localStorage.getItem('gd_mode')||'drive';
+    if(mode==='local') return; // 로컬 백업 모드면 닫힐 때도 동기화 안 함
     clearTimeout(gdSaveTimer); // 예약된 업로드 취소 (중복 방지)
     gdDirty=false;
     try {
@@ -786,6 +790,12 @@ ${jsonStr}
       return;
     }
     // 저장된 토큰으로 복원
+    const savedMode2 = localStorage.getItem('gd_mode')||'drive';
+    if(savedMode2==='local'){
+      // 로컬 백업 모드면 토큰 있어도 자동 동기화 안 함
+      checkFirstRun();
+      return;
+    }
     if(gdRestoreToken()){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
