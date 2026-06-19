@@ -182,11 +182,6 @@
     .modal-tab.tab-dragging{opacity:1;background:rgba(255,255,255,0.55);color:#1A2B1A;border-radius:10px 10px 0 0;font-weight:800;backdrop-filter:blur(4px);}
     .modal-tab.tab-drag-over{background:rgba(163,230,53,0.25);border-radius:10px 10px 0 0;color:var(--lime);outline:2px dashed rgba(163,230,53,0.7);}
     .modal-tab:hover{color:var(--text);}
-    .modal-tab.active-golf{color:var(--lime);border-bottom-color:var(--lime);}
-    .modal-tab.active-run{color:var(--sky);border-bottom-color:var(--sky);}
-    .modal-tab.active-swim{color:var(--aqua);border-bottom-color:var(--aqua);}
-    .modal-tab.active-tennis{color:var(--amber);border-bottom-color:var(--amber);}
-    .modal-tab.active-bike{color:var(--green);border-bottom-color:var(--green);}
     .modal-tab-rest{color:var(--muted) !important;cursor:default;}
     .tab-remove{position:absolute;top:-8px;right:-4px;width:16px;height:16px;border-radius:50%;background:rgba(100,100,100,0.4);color:rgba(255,255,255,0.7);font-size:10px;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;}
     .tab-remove:hover{background:var(--rose);color:#fff;}
@@ -200,8 +195,6 @@
     /* section */
     .m-section{background:rgba(255,255,255,0.03);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
     .m-section-label{font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px;}
-    .golf-pane .m-section-label{color:var(--lime);}
-    .run-pane  .m-section-label{color:var(--sky);}
 
     /* plan name row */
     .plan-name-row{display:flex;align-items:center;gap:8px;}
@@ -220,8 +213,6 @@
     .chip-x:hover{opacity:1;}
     .no-changed{font-size:12px;color:var(--muted);font-style:italic;}
     .add-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.13);color:var(--subtext);transition:all 0.15s;margin-top:2px;}
-    .golf-pane .add-btn:hover{background:rgba(163,230,53,0.08);border-color:rgba(163,230,53,0.3);color:var(--lime);}
-    .run-pane  .add-btn:hover{background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.3);color:var(--sky);}
 
     /* done check */
     .done-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;border:2px dashed;transition:all 0.18s;}
@@ -1073,7 +1064,7 @@ const DONE_KEY   = 'workout_done_v4';      // {dateKey:type -> true}
 // 새 운동 추가 시 여기만 수정하면 CSS/함수/피커 모두 자동 반영
 const WORKOUT_TYPES = {
   strength: { icon:'💪', name:'보강운동', color:'var(--rose)',  rgb:'251,113,133', defName:'런지',         opts:['런지','푸쉬업','스쿼트','플랭크','카프 레이즈'] },
-  swim:     { icon:'🏊', name:'수영',     color:'var(--aqua)',  rgb:'34,211,238',  defName:'자유형',       opts:['자유형','배영','평영','접영','혼합 수영','수영 인터벌'] },
+  swim:     { icon:'🏊', name:'수영',     color:'var(--purple)',rgb:'192,132,252', defName:'자유형',       opts:['자유형','배영','평영','접영','혼합 수영','수영 인터벌'] },
   bike:     { icon:'🚴', name:'자전거',   color:'var(--green)', rgb:'74,222,128',  defName:'로드 라이딩',   opts:['로드 라이딩','MTB','실내 자전거','인터벌 라이딩','장거리 라이딩'] },
   run:      { icon:'🏃', name:'러닝',     color:'var(--sky)',   rgb:'56,189,248',  defName:'조깅',        opts:['가벼운 조깅','LSD (장거리)','숏 인터벌','롱 인터벌','템포런','빌드업','파틀렉'] },
   tennis:   { icon:'🎾', name:'테니스',   color:'var(--amber)', rgb:'251,191,36',  defName:'랠리',         opts:['랠리 연습','서브 연습','포핸드/백핸드','게임 연습','레슨'] },
@@ -1096,6 +1087,11 @@ const ALL_WORKOUT_TYPES = Object.keys(WORKOUT_TYPES);
     css += `.rt-type-btn.sel-${t}{background:rgba(${rgb},0.18);border-color:rgba(${rgb},0.5);}\n`;
     css += `.picker-item.sel-${t}{border-color:rgba(${rgb},0.35);background:rgba(${rgb},0.07);}\n`;
     css += `.picker-item.sel-${t} .picker-check{opacity:1;}\n`;
+    css += `.modal-tab.active-${t}{color:${color};border-bottom-color:${color};}\n`;
+    css += `.${t}-pane .m-section-label{color:${color};}\n`;
+    css += `.${t}-pane .add-btn:hover{background:rgba(${rgb},0.08);border-color:rgba(${rgb},0.3);color:${color};}\n`;
+    css += `.btn-${t}{background:rgba(${rgb},0.15);color:${color};border:1px solid rgba(${rgb},0.3);}\n`;
+    css += `.btn-${t}:hover{background:rgba(${rgb},0.25);}\n`;
   });
   const style = document.createElement('style');
   style.textContent = css;
@@ -1908,7 +1904,7 @@ function buildPane(item){
         </div>
       </div>
       <button class="btn btn-ghost" id="memoCopyBtn-${type}">📋 복사</button>
-      <button class="btn btn-${type==='golf'?'lime':type==='run'?'sky':type==='swim'?'aqua':type==='tennis'?'amber':'green'}" data-notesave="${type}">메모 저장</button>
+      <button class="btn btn-${type}" data-notesave="${type}">메모 저장</button>
     </div>
     <!-- ④ 운동 완료 -->
     <div class="modal-divider"></div>
