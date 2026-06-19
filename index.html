@@ -100,6 +100,68 @@
     /* Week Nav */
     .week-nav{max-width:860px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;position:relative;min-height:38px;}
     .nav-btn{background:rgba(163,230,53,0.08);border:1px solid rgba(163,230,53,0.18);color:var(--lime);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0;transition:background 0.15s;-webkit-tap-highlight-color:transparent;}
+
+    /* Add-on 시스템 */
+    .addon-wrap{position:relative;flex-shrink:0;}
+    .addon-btn{background:var(--card);border:1px solid rgba(255,255,255,0.08);color:var(--text);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.15s;-webkit-tap-highlight-color:transparent;}
+    .addon-btn.open{background:rgba(163,230,53,0.18);border-color:var(--lime);color:var(--lime);}
+    .addon-btn.open .addon-plus-icon{transform:rotate(45deg);}
+    .addon-plus-icon{display:inline-block;transition:transform 0.2s;font-weight:300;}
+    .addon-dropdown{display:none;position:absolute;top:46px;right:0;z-index:60;width:250px;background:var(--surface);border:1px solid rgba(163,230,53,0.2);border-radius:16px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+    .addon-dropdown.open{display:block;}
+    .addon-dropdown-label{font-size:11px;font-weight:700;color:var(--subtext);padding:8px 10px 6px;letter-spacing:0.05em;}
+    .addon-item{width:100%;display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;border:none;background:transparent;cursor:pointer;text-align:left;font-family:'Noto Sans KR',sans-serif;}
+    .addon-item:not(.disabled):hover{background:var(--card-hover);}
+    .addon-item.disabled{opacity:0.4;cursor:default;}
+    .addon-item-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+    .addon-item-name{font-size:13px;font-weight:700;color:#fff;}
+    .addon-item.disabled .addon-item-name{color:var(--subtext);}
+    .addon-item-desc{font-size:10.5px;color:var(--subtext);margin-top:1px;}
+
+    /* 페이스 계산기 */
+    .pace-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
+    .pace-overlay.open{display:flex;}
+    .pace-box{background:var(--surface);border:1px solid rgba(56,189,248,0.2);border-radius:18px;width:100%;max-width:400px;max-height:90vh;display:flex;flex-direction:column;}
+    .pace-head{padding:20px 22px 14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+    .pace-title{font-size:17px;font-weight:800;color:#fff;font-family:'Space Grotesk',sans-serif;display:flex;align-items:center;gap:8px;}
+    .pace-close{background:none;border:none;color:var(--subtext);cursor:pointer;font-size:18px;padding:4px;}
+    .pace-tabs{display:flex;gap:2px;padding:0 10px 14px;flex-shrink:0;overflow-x:auto;}
+    .pace-tab{display:flex;align-items:center;gap:5px;flex-shrink:0;padding:7px 9px;border-radius:10px;border:none;cursor:pointer;background:transparent;color:var(--subtext);font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;}
+    .pace-tab.active{background:rgba(56,189,248,0.15);color:var(--sky);}
+    .pace-body{padding:4px 22px 22px;overflow-y:auto;}
+    .pace-desc{font-size:12px;color:var(--subtext);margin-bottom:16px;line-height:1.6;}
+    .pace-label{font-size:11px;color:var(--subtext);margin-bottom:6px;font-weight:700;}
+    .pace-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'Noto Sans KR',sans-serif;width:100%;box-sizing:border-box;text-align:center;}
+    .pace-input.result{background:rgba(56,189,248,0.1);border:1.5px solid rgba(56,189,248,0.4);color:var(--sky);font-weight:800;}
+    .pace-result-box{background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:16px;text-align:center;}
+    .pace-result-label{font-size:11px;color:var(--subtext);margin-bottom:4px;}
+    .pace-result-value{font-size:26px;font-weight:800;color:var(--sky);font-family:'Space Grotesk',sans-serif;}
+    .pace-race-card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;}
+    .pace-race-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .pace-race-name{font-size:14px;font-weight:800;color:#fff;}
+    .pace-race-pace{font-size:13px;font-weight:800;color:var(--sky);font-family:'Space Grotesk',sans-serif;}
+    .pace-time-row{display:flex;gap:6px;align-items:center;}
+    .pace-toggle-row{display:flex;gap:6px;margin-bottom:18px;background:rgba(255,255,255,0.06);border-radius:12px;padding:4px;}
+    .pace-toggle-btn{flex:1;padding:8px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;background:none;color:var(--subtext);}
+    .pace-toggle-btn.active{background:rgba(56,189,248,0.2);color:var(--sky);}
+    .pace-dist-row{display:flex;gap:6px;margin-bottom:14px;}
+    .pace-dist-btn{flex:1;padding:9px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--subtext);font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;}
+    .pace-dist-btn.active{border:1px solid var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);}
+    .pace-dist-custom-input{flex:1;padding:9px 4px;border-radius:10px;border:1px solid var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);font-size:13px;font-weight:700;text-align:center;font-family:'Noto Sans KR',sans-serif;box-sizing:border-box;}
+    .treadmill-card{display:flex;align-items:center;gap:16px;background:var(--card);border-radius:16px;padding:16px 18px;margin-bottom:18px;}
+    .treadmill-speed-label{font-size:10px;color:var(--subtext);margin-bottom:4px;font-weight:700;}
+    .treadmill-speed-display{font-size:28px;font-weight:800;color:var(--sky);cursor:pointer;font-family:'Space Grotesk',sans-serif;line-height:1;}
+    .treadmill-speed-unit{font-size:13px;color:var(--subtext);margin-left:5px;font-family:'Noto Sans KR',sans-serif;}
+    .treadmill-speed-hint{font-size:10px;color:var(--muted);margin-top:6px;}
+    .treadmill-speed-input{width:100%;box-sizing:border-box;background:rgba(56,189,248,0.1);border:1.5px solid var(--sky);border-radius:10px;color:var(--sky);font-size:24px;font-weight:800;padding:6px 8px;text-align:left;font-family:'Space Grotesk',sans-serif;}
+    .vdrum-wrap{display:flex;align-items:center;gap:4px;}
+    .vdrum-dot{font-size:18px;font-weight:800;color:var(--subtext);}
+    .vdrum{position:relative;width:44px;height:160px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
+    .vdrum-sel{position:absolute;left:2px;right:2px;top:64px;height:32px;border-radius:7px;background:rgba(56,189,248,0.15);border:1.5px solid var(--sky);pointer-events:none;z-index:1;}
+    .vdrum-scroll{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;position:relative;z-index:2;padding:64px 0;}
+    .vdrum-scroll::-webkit-scrollbar{display:none;}
+    .vdrum-item{height:32px;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--subtext);font-family:'Space Grotesk',sans-serif;}
+    .vdrum-item.active{font-size:17px;font-weight:800;color:var(--sky);}
     .nav-btn:hover{background:rgba(163,230,53,0.16);}
     .nav-btn-prev{position:absolute;left:0;}
     .nav-btn-next{position:absolute;right:0;}
@@ -821,6 +883,23 @@ ${jsonStr}
   </script>
 </head>
 <body>
+<!-- 러닝 페이스 계산기 -->
+<div class="pace-overlay" id="paceOverlay">
+  <div class="pace-box">
+    <div class="pace-head">
+      <div class="pace-title">⏱️ 러닝 페이스 계산기</div>
+      <button class="pace-close" id="paceCloseBtn">✕</button>
+    </div>
+    <div class="pace-tabs" id="paceTabs">
+      <button class="pace-tab" data-pace-tab="race">🚩 목표 기록</button>
+      <button class="pace-tab" data-pace-tab="triangle">📊 거리·페이스·시간</button>
+      <button class="pace-tab" data-pace-tab="track">🔄 트랙 1랩</button>
+      <button class="pace-tab" data-pace-tab="treadmill">⏱️ 트레드밀</button>
+    </div>
+    <div class="pace-body" id="paceBody"></div>
+  </div>
+</div>
+
 <!-- 최초 실행 온보딩 -->
 <div class="onb-overlay" id="onbOverlay">
   <div class="onb-track" id="onbTrack">
@@ -1496,6 +1575,16 @@ function buildSlideHTML(ws){
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <h1>${isThis?'이번 주':lbl} <span>운동 일정</span></h1>
       <div style="display:flex;gap:8px;flex-shrink:0;">
+        <div class="addon-wrap">
+          <button class="addon-btn" title="Add-on 도구"><span class="addon-plus-icon">+</span></button>
+          <div class="addon-dropdown">
+            <div class="addon-dropdown-label">ADD-ON 도구</div>
+            <button class="addon-item" data-addon="pace">
+              <div class="addon-item-icon" style="background:rgba(56,189,248,0.13);">🏃</div>
+              <div><div class="addon-item-name">러닝 페이스 계산기</div><div class="addon-item-desc">목표기록·페이스·트랙·트레드밀</div></div>
+            </button>
+          </div>
+        </div>
         <button class="nav-btn" id="searchBtn" title="메모 검색">🔍</button>
         <button class="nav-btn" id="settingsBtn" title="루틴 설정" style="background:rgba(163,230,53,0.08);border-color:rgba(163,230,53,0.18);">⚙️</button>
       </div>
@@ -1528,6 +1617,13 @@ const now0=new Date();now0.setHours(0,0,0,0);
 let curWeek=getWeekStart(now0);
 // 필터 상태 — ALL_WORKOUT_TYPES 기반으로 자동 관리
 let activeFilters=new Set(ALL_WORKOUT_TYPES); // 기본: 전체 선택
+
+// Add-on 드롭다운 상태 — 보이는 슬라이드(현재 화면)만 열림 표시되도록 전역으로 관리
+let addonDropdownOpen = false;
+function applyAddonDropdownState(){
+  document.querySelectorAll('.addon-dropdown').forEach(d=>d.classList.toggle('open', addonDropdownOpen));
+  document.querySelectorAll('.addon-btn').forEach(b=>b.classList.toggle('open', addonDropdownOpen));
+}
 const track=document.getElementById('pageTrack');
 const slides=[document.getElementById('slidePrev'),document.getElementById('slideCurr'),document.getElementById('slideNext')];
 
@@ -1549,6 +1645,16 @@ function wireNav(){
   document.querySelectorAll('[id^="btnToday-"]').forEach(b=>b.onclick=e=>{e.stopPropagation();goToday();});
   document.querySelectorAll('#settingsBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openSettings();});
   document.querySelectorAll('#searchBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openSearch();});
+  // Add-on 버튼 — 전역 상태(addonDropdownOpen)로 관리, 클래스 선택자만 사용 (id 중복 없음)
+  document.querySelectorAll('.addon-btn').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      addonDropdownOpen = !addonDropdownOpen;
+      applyAddonDropdownState();
+    };
+  });
+  document.querySelectorAll('.addon-item[data-addon="pace"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonPace(); });
+  applyAddonDropdownState();
   document.querySelectorAll('#navCenter').forEach(b=>b.onclick=e=>{
     if(e.target.closest('.this-week-btn')) return;
     e.stopPropagation();
@@ -2517,7 +2623,351 @@ function gdSetMode(mode){
   localStorage.setItem('gd_mode', mode);
 }
 
+/* ══ Add-on: 러닝 페이스 계산기 ══ */
+const PACE_STORAGE_KEY = 'pace_calc_state_v1';
+let paceState = {};
+try { paceState = JSON.parse(localStorage.getItem(PACE_STORAGE_KEY) || '{}'); } catch(e) { paceState = {}; }
+function savePaceState(){ try{ localStorage.setItem(PACE_STORAGE_KEY, JSON.stringify(paceState)); }catch(e){} }
+
+const RACE_PRESETS = [
+  { id:'5k', label:'5K', km:5 },
+  { id:'10k', label:'10K', km:10 },
+  { id:'half', label:'하프', km:21.0975 },
+  { id:'full', label:'풀', km:42.195 },
+];
+
+function paceFmtPace(secPerKm){
+  if(!isFinite(secPerKm)||secPerKm<=0) return '—';
+  const m=Math.floor(secPerKm/60), s=Math.round(secPerKm%60);
+  return `${m}'${String(s).padStart(2,'0')}"`;
+}
+function paceFmtTime(totalSec){
+  if(!isFinite(totalSec)||totalSec<=0) return '—';
+  const h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=Math.round(totalSec%60);
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+let paceActiveTab = 'race';
+
+function openAddonPace(){
+  addonDropdownOpen = false;
+  applyAddonDropdownState();
+  document.getElementById('paceOverlay').classList.add('open');
+  renderPaceTabs();
+  renderPaceBody();
+}
+function closeAddonPace(){
+  document.getElementById('paceOverlay').classList.remove('open');
+}
+function renderPaceTabs(){
+  document.querySelectorAll('.pace-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.paceTab===paceActiveTab);
+    btn.onclick=()=>{ paceActiveTab=btn.dataset.paceTab; renderPaceTabs(); renderPaceBody(); };
+  });
+}
+
+function renderPaceBody(){
+  const body=document.getElementById('paceBody');
+  if(paceActiveTab==='race') renderPaceRaceTab(body);
+  else if(paceActiveTab==='triangle') renderPaceTriangleTab(body);
+  else if(paceActiveTab==='track') renderPaceTrackTab(body);
+  else if(paceActiveTab==='treadmill') renderPaceTreadmillTab(body);
+}
+
+// ── 탭 1: 목표 기록 ──
+function renderPaceRaceTab(body){
+  const data = paceState.race || {};
+  let html = `<div class="pace-desc">대회 거리별 목표 완주 시간을 입력하면 평균 페이스를 계산해요.</div>`;
+  RACE_PRESETS.forEach(preset=>{
+    const d = data[preset.id] || {h:'',m:'',s:''};
+    const totalSec = (+d.h||0)*3600 + (+d.m||0)*60 + (+d.s||0);
+    const pace = totalSec>0 ? paceFmtPace(totalSec/preset.km) : '—';
+    html += `<div class="pace-race-card">
+      <div class="pace-race-head">
+        <div class="pace-race-name">${preset.label}</div>
+        <div class="pace-race-pace">${pace!=='—'?pace+'/km':'—'}</div>
+      </div>
+      <div class="pace-time-row">
+        <input type="number" placeholder="시" class="pace-input" data-race="${preset.id}" data-field="h" value="${d.h||''}" min="0">
+        <span style="color:var(--subtext);font-size:12px;">:</span>
+        <input type="number" placeholder="분" class="pace-input" data-race="${preset.id}" data-field="m" value="${d.m||''}" min="0" max="59">
+        <span style="color:var(--subtext);font-size:12px;">:</span>
+        <input type="number" placeholder="초" class="pace-input" data-race="${preset.id}" data-field="s" value="${d.s||''}" min="0" max="59">
+      </div>
+    </div>`;
+  });
+  body.innerHTML = html;
+  body.querySelectorAll('[data-race]').forEach(inp=>{
+    inp.oninput=()=>{
+      const id=inp.dataset.race, field=inp.dataset.field;
+      if(!paceState.race) paceState.race={};
+      if(!paceState.race[id]) paceState.race[id]={};
+      paceState.race[id][field]=inp.value;
+      savePaceState();
+      renderPaceRaceTab(body);
+      // 포커스 유지
+      const newInp = body.querySelector(`[data-race="${id}"][data-field="${field}"]`);
+      if(newInp){ newInp.focus(); const v=newInp.value; newInp.value=''; newInp.value=v; }
+    };
+  });
+}
+
+// ── 탭 2: 거리·페이스·시간 (토글) ──
+function renderPaceTriangleTab(body){
+  const t = paceState.triangle || {dist:'5',paceMin:'5',paceSec:'0',h:'0',m:'25',s:'0',target:'time'};
+  const target = t.target || 'time';
+  const dist = parseFloat(t.dist)||0;
+  const paceSecPerKm = (+t.paceMin||0)*60 + (+t.paceSec||0);
+  const totalTimeSec = (+t.h||0)*3600 + (+t.m||0)*60 + (+t.s||0);
+
+  let resultDist=null, resultPaceMin=null, resultPaceSec=null, resultTimeStr=null;
+  if(target==='dist' && paceSecPerKm>0 && totalTimeSec>0) resultDist=(totalTimeSec/paceSecPerKm).toFixed(2);
+  else if(target==='pace' && dist>0 && totalTimeSec>0){
+    const p=totalTimeSec/dist; resultPaceMin=Math.floor(p/60); resultPaceSec=Math.round(p%60);
+  } else if(target==='time' && dist>0 && paceSecPerKm>0) resultTimeStr=paceFmtTime(dist*paceSecPerKm);
+
+  const TOGGLES=[{id:'dist',label:'거리'},{id:'pace',label:'페이스'},{id:'time',label:'시간'}];
+
+  body.innerHTML = `
+    <div class="pace-desc">구하고 싶은 값을 선택하면, 나머지 두 값을 입력해서 계산해요.</div>
+    <div class="pace-toggle-row">
+      ${TOGGLES.map(o=>`<button class="pace-toggle-btn${target===o.id?' active':''}" data-target="${o.id}">${o.label} 구하기</button>`).join('')}
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="pace-label">거리 (km) ${target==='dist'?'<span style="color:var(--sky)">· 결과</span>':''}</div>
+      <input type="number" class="pace-input${target==='dist'?' result':''}" id="triDist"
+        value="${target==='dist'?(resultDist??'—'):(t.dist||'')}" step="0.01" min="0" ${target==='dist'?'readonly':''}>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="pace-label">페이스 (분'초"/km) ${target==='pace'?'<span style="color:var(--sky)">· 결과</span>':''}</div>
+      <div class="pace-time-row">
+        <input type="number" class="pace-input${target==='pace'?' result':''}" id="triPaceMin" placeholder="분"
+          value="${target==='pace'?(resultPaceMin??'—'):(t.paceMin||'')}" min="0" ${target==='pace'?'readonly':''}>
+        <span style="color:var(--subtext);font-size:12px;">'</span>
+        <input type="number" class="pace-input${target==='pace'?' result':''}" id="triPaceSec" placeholder="초"
+          value="${target==='pace'?(resultPaceSec??'—'):(t.paceSec||'')}" min="0" max="59" ${target==='pace'?'readonly':''}>
+        <span style="color:var(--subtext);font-size:12px;">"</span>
+      </div>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div class="pace-label">소요 시간 ${target==='time'?'<span style="color:var(--sky)">· 결과</span>':''}</div>
+      ${target==='time'
+        ? `<div class="pace-input result">${resultTimeStr??'—'}</div>`
+        : `<div class="pace-time-row">
+            <input type="number" class="pace-input" id="triH" placeholder="시" value="${t.h||''}" min="0">
+            <span style="color:var(--subtext);font-size:12px;">:</span>
+            <input type="number" class="pace-input" id="triM" placeholder="분" value="${t.m||''}" min="0" max="59">
+            <span style="color:var(--subtext);font-size:12px;">:</span>
+            <input type="number" class="pace-input" id="triS" placeholder="초" value="${t.s||''}" min="0" max="59">
+          </div>`}
+    </div>
+  `;
+
+  body.querySelectorAll('[data-target]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(!paceState.triangle) paceState.triangle={};
+      paceState.triangle.target=btn.dataset.target;
+      savePaceState();
+      renderPaceTriangleTab(body);
+    };
+  });
+  const bindTri=(id,field)=>{
+    const el=body.querySelector('#'+id);
+    if(!el||el.readOnly) return;
+    el.oninput=()=>{
+      if(!paceState.triangle) paceState.triangle={target:'time'};
+      paceState.triangle[field]=el.value;
+      savePaceState();
+      renderPaceTriangleTab(body);
+      const newEl=body.querySelector('#'+id);
+      if(newEl){ newEl.focus(); const v=newEl.value; newEl.value=''; newEl.value=v; }
+    };
+  };
+  bindTri('triDist','dist'); bindTri('triPaceMin','paceMin'); bindTri('triPaceSec','paceSec');
+  bindTri('triH','h'); bindTri('triM','m'); bindTri('triS','s');
+}
+
+// ── 탭 3: 트랙 1랩 ──
+function renderPaceTrackTab(body){
+  const t = paceState.track || {paceMin:'5',paceSec:'0',trackDist:'400',customDist:''};
+  const paceSecPerKm = (+t.paceMin||0)*60 + (+t.paceSec||0);
+  const trackDistM = t.trackDist==='custom' ? (parseFloat(t.customDist)||0) : parseFloat(t.trackDist);
+  const lapSec = paceSecPerKm * (trackDistM/1000);
+
+  body.innerHTML = `
+    <div class="pace-desc">목표 페이스와 트랙 거리를 입력하면 1바퀴 소요 시간을 알려드려요.</div>
+    <div style="margin-bottom:14px;">
+      <div class="pace-label">트랙 거리</div>
+      <div class="pace-dist-row">
+        <button class="pace-dist-btn${t.trackDist==='200'?' active':''}" data-dist="200">200m</button>
+        <button class="pace-dist-btn${t.trackDist==='400'?' active':''}" data-dist="400">400m</button>
+        ${t.trackDist==='custom'
+          ? `<input type="number" class="pace-dist-custom-input" id="trackCustom" placeholder="거리입력(m)" value="${t.customDist||''}" min="0">`
+          : `<button class="pace-dist-btn" data-dist="custom">직접입력</button>`}
+      </div>
+    </div>
+    <div style="margin-bottom:18px;">
+      <div class="pace-label">목표 페이스 (분'초"/km)</div>
+      <div class="pace-time-row">
+        <input type="number" class="pace-input" id="trackPaceMin" placeholder="분" value="${t.paceMin||''}" min="0">
+        <span style="color:var(--subtext);font-size:12px;">'</span>
+        <input type="number" class="pace-input" id="trackPaceSec" placeholder="초" value="${t.paceSec||''}" min="0" max="59">
+        <span style="color:var(--subtext);font-size:12px;">"</span>
+      </div>
+    </div>
+    <div class="pace-result-box">
+      <div class="pace-result-label">${trackDistM>0?trackDistM:''}m 트랙 1랩</div>
+      <div class="pace-result-value">${lapSec>0?paceFmtTime(lapSec):'—'}</div>
+    </div>
+    ${lapSec>0?`<div style="text-align:center;font-size:12px;color:var(--subtext);margin-top:8px;">(${Math.round(lapSec)}초)</div>`:''}
+  `;
+
+  body.querySelectorAll('[data-dist]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(!paceState.track) paceState.track={};
+      paceState.track.trackDist=btn.dataset.dist;
+      savePaceState();
+      renderPaceTrackTab(body);
+      if(btn.dataset.dist==='custom'){
+        const inp=body.querySelector('#trackCustom');
+        if(inp) inp.focus();
+      }
+    };
+  });
+  const customInp = body.querySelector('#trackCustom');
+  if(customInp) customInp.oninput=()=>{
+    if(!paceState.track) paceState.track={};
+    paceState.track.customDist=customInp.value;
+    savePaceState();
+    renderPaceTrackTab(body);
+    const newInp=body.querySelector('#trackCustom');
+    if(newInp){ newInp.focus(); const v=newInp.value; newInp.value=''; newInp.value=v; }
+  };
+  const bindPace=(id,field)=>{
+    const el=body.querySelector('#'+id);
+    if(!el) return;
+    el.oninput=()=>{
+      if(!paceState.track) paceState.track={};
+      paceState.track[field]=el.value;
+      savePaceState();
+      renderPaceTrackTab(body);
+      const newEl=body.querySelector('#'+id);
+      if(newEl){ newEl.focus(); const v=newEl.value; newEl.value=''; newEl.value=v; }
+    };
+  };
+  bindPace('trackPaceMin','paceMin'); bindPace('trackPaceSec','paceSec');
+}
+
+// ── 탭 4: 트레드밀 (이중 세로 드럼) ──
+function renderPaceTreadmillTab(body){
+  const t = paceState.treadmill || {kph:'10'};
+  const kph = parseFloat(t.kph)||0;
+  const paceSecPerKm = kph>0 ? 3600/kph : 0;
+  const whole = Math.floor(kph);
+  const decimal = Math.round((kph-whole)*10);
+
+  const wholeVals=[]; for(let v=3;v<=25;v++) wholeVals.push(v);
+  const decVals=[]; for(let v=0;v<=9;v++) decVals.push(v);
+
+  body.innerHTML = `
+    <div class="pace-desc">상하로 드래그해서 트레드밀 속도를 선택하면 페이스로 환산해요.</div>
+    <div class="treadmill-card">
+      <div style="flex:1;">
+        <div class="treadmill-speed-label">현재 속도</div>
+        <div id="treadmillSpeedWrap">
+          <div class="treadmill-speed-display" id="treadmillSpeedDisplay">${kph>0?kph.toFixed(1):'0.0'}<span class="treadmill-speed-unit">km/h</span></div>
+        </div>
+        <div class="treadmill-speed-hint">탭하여 직접 입력</div>
+      </div>
+      <div class="vdrum-wrap">
+        <div class="vdrum" id="vdrumWhole"><div class="vdrum-sel"></div><div class="vdrum-scroll" id="vdrumWholeScroll"></div></div>
+        <div class="vdrum-dot">.</div>
+        <div class="vdrum" id="vdrumDec"><div class="vdrum-sel"></div><div class="vdrum-scroll" id="vdrumDecScroll"></div></div>
+      </div>
+    </div>
+    <div class="pace-result-box">
+      <div class="pace-result-label">환산 페이스</div>
+      <div class="pace-result-value">${paceSecPerKm>0?paceFmtPace(paceSecPerKm)+' <span style="font-size:14px;">/km</span>':'—'}</div>
+    </div>
+  `;
+
+  function buildDrum(scrollId, values, current, onSelect){
+    const scrollEl = body.querySelector('#'+scrollId);
+    scrollEl.innerHTML = values.map(v=>
+      `<div class="vdrum-item${v===current?' active':''}" data-val="${v}">${v}</div>`
+    ).join('');
+    const ITEM_H=32;
+    const idx = values.indexOf(current);
+    scrollEl.scrollTop = idx*ITEM_H;
+    scrollEl.querySelectorAll('.vdrum-item').forEach(item=>{
+      item.onclick=()=>onSelect(parseInt(item.dataset.val));
+    });
+    let timer=null;
+    scrollEl.onscroll=()=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        const i=Math.round(scrollEl.scrollTop/ITEM_H);
+        const v=values[Math.max(0,Math.min(values.length-1,i))];
+        if(v!==undefined && v!==current) onSelect(v);
+      },80);
+    };
+  }
+
+  const setWhole=(w)=>{
+    if(!paceState.treadmill) paceState.treadmill={};
+    paceState.treadmill.kph=(w+decimal/10).toFixed(1);
+    savePaceState();
+    renderPaceTreadmillTab(body);
+  };
+  const setDecimal=(d)=>{
+    if(!paceState.treadmill) paceState.treadmill={};
+    paceState.treadmill.kph=(whole+d/10).toFixed(1);
+    savePaceState();
+    renderPaceTreadmillTab(body);
+  };
+
+  buildDrum('vdrumWholeScroll', wholeVals, whole, setWhole);
+  buildDrum('vdrumDecScroll', decVals, decimal, setDecimal);
+
+  // 직접 입력 (속도 표시 클릭)
+  const display = body.querySelector('#treadmillSpeedDisplay');
+  display.onclick=()=>{
+    const wrap = body.querySelector('#treadmillSpeedWrap');
+    wrap.innerHTML = `<input type="number" class="treadmill-speed-input" id="treadmillEditInput" value="${t.kph||''}" step="0.1" min="0" autofocus>`;
+    const inp = wrap.querySelector('#treadmillEditInput');
+    inp.focus();
+    const commit=()=>{
+      const v=parseFloat(inp.value);
+      if(!isNaN(v)&&v>=0){
+        if(!paceState.treadmill) paceState.treadmill={};
+        paceState.treadmill.kph=v.toFixed(1);
+        savePaceState();
+      }
+      renderPaceTreadmillTab(body);
+    };
+    inp.onblur=commit;
+    inp.onkeydown=e=>{ if(e.key==='Enter') commit(); };
+  };
+}
+
+// 버튼 바인딩은 wireNav()에서 매 렌더링마다 수행 (헤더가 동적 생성되므로)
+
 // 최초 실행 루틴 설정 유도
+// Add-on 페이스 계산기 — 정적 요소(헤더 밖) 바인딩, DOM 준비 후 1회만 실행
+(function initPaceOverlay(){
+  const closeBtn = document.getElementById('paceCloseBtn');
+  const overlay = document.getElementById('paceOverlay');
+  if(closeBtn) closeBtn.onclick = closeAddonPace;
+  if(overlay) overlay.onclick = e=>{ if(e.target.id==='paceOverlay') closeAddonPace(); };
+  // 외부 클릭 시 add-on 드롭다운 닫기
+  document.addEventListener('click', e=>{
+    if(addonDropdownOpen && !(e.target.closest && e.target.closest('.addon-wrap'))){
+      addonDropdownOpen = false;
+      applyAddonDropdownState();
+    }
+  });
+})();
+
 function checkFirstRun(){
   const hasRoutine = !!localStorage.getItem('workout_routine_v2');
   const onboardDone = !!localStorage.getItem('onboard_done_v1');
@@ -3531,6 +3981,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
 (function(){
   const POPUPS=[
     {id:'photoViewer',    close:()=>document.getElementById('photoViewer')?.classList.remove('open')},
+    {id:'paceOverlay',    close:()=>document.getElementById('paceOverlay')?.classList.remove('open')},
     {id:'calPickerOverlay',close:()=>document.getElementById('calPickerOverlay')?.classList.remove('open')},
     {id:'searchOverlay',  close:()=>document.getElementById('searchOverlay')?.classList.remove('open')},
     {id:'settingsOverlay',close:()=>document.getElementById('settingsOverlay')?.classList.remove('open')},
