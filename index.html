@@ -121,7 +121,7 @@
     /* 페이스 계산기 */
     .pace-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
     .pace-overlay.open{display:flex;}
-    .pace-box{background:var(--surface);border:1px solid rgba(56,189,248,0.2);border-radius:18px;width:100%;max-width:400px;max-height:90vh;display:flex;flex-direction:column;}
+    .pace-box{background:var(--surface);border:1px solid rgba(56,189,248,0.2);border-radius:18px;width:100%;max-width:400px;max-height:90vh;display:flex;flex-direction:column;overflow-x:hidden;}
     .pace-head{padding:20px 22px 14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
     .pace-title{font-size:17px;font-weight:800;color:#fff;font-family:'Space Grotesk',sans-serif;display:flex;align-items:center;gap:8px;}
     .pace-close{background:none;border:none;color:var(--subtext);cursor:pointer;font-size:18px;padding:4px;}
@@ -131,7 +131,9 @@
     .pace-body{padding:4px 22px 22px;overflow-y:auto;}
     .pace-desc{font-size:12px;color:var(--subtext);margin-bottom:16px;line-height:1.6;}
     .pace-label{font-size:11px;color:var(--subtext);margin-bottom:6px;font-weight:700;}
-    .pace-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'Noto Sans KR',sans-serif;width:100%;box-sizing:border-box;text-align:center;}
+    .pace-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'Noto Sans KR',sans-serif;width:100%;box-sizing:border-box;text-align:center;outline:none;-moz-appearance:textfield;}
+    .pace-input::-webkit-outer-spin-button,
+    .pace-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
     .pace-input.result{background:rgba(56,189,248,0.1);border:1.5px solid rgba(56,189,248,0.4);color:var(--sky);font-weight:800;}
     .pace-result-box{background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:16px;text-align:center;}
     .pace-result-label{font-size:11px;color:var(--subtext);margin-bottom:4px;}
@@ -145,15 +147,21 @@
     .pace-toggle-btn{flex:1;padding:8px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;background:none;color:var(--subtext);}
     .pace-toggle-btn.active{background:rgba(56,189,248,0.2);color:var(--sky);}
     .pace-dist-row{display:flex;gap:6px;margin-bottom:14px;}
+    .pace-dist-row>*{min-width:0;}
     .pace-dist-btn{flex:1;padding:9px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--subtext);font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;}
     .pace-dist-btn.active{border:1px solid var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);}
-    .pace-dist-custom-input{flex:1;padding:9px 4px;border-radius:10px;border:1px solid var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);font-size:13px;font-weight:700;text-align:center;font-family:'Noto Sans KR',sans-serif;box-sizing:border-box;}
+    .pace-dist-custom-input{flex:1;padding:9px;border-radius:10px;border:1px solid var(--sky);background:rgba(56,189,248,0.15);color:var(--sky);font-size:13px;font-weight:700;text-align:center;font-family:'Noto Sans KR',sans-serif;box-sizing:border-box;outline:none;-moz-appearance:textfield;}
+    .pace-dist-custom-input::-webkit-outer-spin-button,
+    .pace-dist-custom-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+    .pace-dist-custom-input:focus{outline:none;border:1px solid var(--sky);}
     .treadmill-card{display:flex;align-items:center;gap:16px;background:var(--card);border-radius:16px;padding:16px 18px;margin-bottom:18px;}
     .treadmill-speed-label{font-size:10px;color:var(--subtext);margin-bottom:4px;font-weight:700;}
     .treadmill-speed-display{font-size:28px;font-weight:800;color:var(--sky);cursor:pointer;font-family:'Space Grotesk',sans-serif;line-height:1;}
     .treadmill-speed-unit{font-size:13px;color:var(--subtext);margin-left:5px;font-family:'Noto Sans KR',sans-serif;}
     .treadmill-speed-hint{font-size:10px;color:var(--muted);margin-top:6px;}
-    .treadmill-speed-input{width:100%;box-sizing:border-box;background:rgba(56,189,248,0.1);border:1.5px solid var(--sky);border-radius:10px;color:var(--sky);font-size:24px;font-weight:800;padding:6px 8px;text-align:left;font-family:'Space Grotesk',sans-serif;}
+    .treadmill-speed-input{width:100%;box-sizing:border-box;background:rgba(56,189,248,0.1);border:1.5px solid var(--sky);border-radius:10px;color:var(--sky);font-size:24px;font-weight:800;padding:6px 8px;text-align:left;font-family:'Space Grotesk',sans-serif;outline:none;-moz-appearance:textfield;}
+    .treadmill-speed-input::-webkit-outer-spin-button,
+    .treadmill-speed-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
     .vdrum-wrap{display:flex;align-items:center;gap:4px;}
     .vdrum-dot{font-size:18px;font-weight:800;color:var(--subtext);}
     .vdrum{position:relative;width:44px;height:160px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
