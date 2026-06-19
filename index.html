@@ -369,9 +369,9 @@
     /* routine table */
     .rt-scroll{overflow-x:auto;}
     .rt-table{border-collapse:collapse;width:100%;min-width:360px;}
-    .rt-day-head{width:32px;}
+    .rt-day-head{width:32px;position:sticky;left:0;background:var(--surface);z-index:2;}
     .rt-week-head{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--subtext);text-align:center;padding:6px 4px;}
-    .rt-day-cell{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--subtext);text-align:center;padding:6px 4px;vertical-align:top;}
+    .rt-day-cell{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--subtext);text-align:center;padding:6px 4px;vertical-align:top;position:sticky;left:0;background:var(--surface);z-index:1;}
     .rt-cell{padding:4px;vertical-align:top;}
     .rt-row-item{display:flex;align-items:center;gap:6px;margin-bottom:4px;border-radius:6px;padding:2px 4px;transition:background 0.12s;}
     .rt-row-item:last-child{margin-bottom:0;}
@@ -507,7 +507,17 @@
   }
 
   // ── OAuth 로그인 (리디렉션) ──
+  function isInAppBrowser(){
+    const ua = navigator.userAgent || '';
+    // 카카오톡, 인스타그램, 페이스북, 라인 등 인앱 브라우저 감지
+    return /KAKAOTALK|Instagram|FBAN|FBAV|Line\//i.test(ua);
+  }
+
   function gdLogin(cb) {
+    if(isInAppBrowser()){
+      alert('카카오톡 등 앱 내 브라우저에서는 Google 로그인이 차단돼요.\n\n우측 상단 메뉴(⋮)에서 "다른 브라우저로 열기" 또는 "Safari로 열기"를 선택해주세요.');
+      return;
+    }
     if(cb) sessionStorage.setItem('gd_cb', cb.name||'sync');
     const hint = localStorage.getItem(GD_LOGIN_HINT)||'';
     const url = `https://accounts.google.com/o/oauth2/v2/auth`
