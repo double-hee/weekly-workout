@@ -795,7 +795,17 @@ ${jsonStr}
       if(isFirstOpen) gdSyncDown(true).then(()=>checkFirstRun());
       return;
     }
-    // 토큰 없으면 최초 실행 체크 (온보딩이 로그인 안내까지 담당)
+    // 토큰 복원 실패 — Drive 모드인데 로그인 안 돼있으면 로그인 팝업 표시
+    const hasRoutine = !!localStorage.getItem('workout_routine_v2');
+    if(hasRoutine){
+      // 기존 사용자: 토큰 만료/없음 → 로그인 필요 안내
+      setTimeout(()=>{
+        const overlay=document.getElementById('gdOverlay');
+        if(overlay) overlay.classList.add('open');
+      }, 400);
+      return;
+    }
+    // 최초 실행: 온보딩이 로그인 안내까지 담당
     checkFirstRun();
   });
   </script>
