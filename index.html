@@ -702,8 +702,33 @@
     if(!gdToken) return;
     gdDirty=false; gdSyncing=true; gdSetStatus('syncing');
     try {
-      const payload={};
-      SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)payload[k]=v;});
+      // 1. Drive의 최신 데이터를 먼저 받아옴 (다른 기기가 먼저 올렸을 수 있으므로)
+      let driveData = {};
+      const existing = await gdFindFile(GD_DATA_FILE);
+      if(existing){
+        const res = await gdFetch(`drive/v3/files/${existing.id}?alt=media`);
+        if(res.ok) driveData = await res.json().catch(()=>({}));
+      }
+      // 2. 로컬 데이터 수집
+      const localPayload={};
+      SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)localPayload[k]=v;});
+      // 3. 키별로 JSON 객체 병합 (단순 객체 형태인 키들: notes/actual/custom/done/extra/removed/tabOrder)
+      //    완전 교체가 아니라 Drive값과 로컬값을 합쳐서 동시 편집 시 데이터 유실 방지
+      const MERGE_KEYS = ['workout_notes_v4','workout_actual_v4','workout_custom_v4','workout_done_v4','workout_extra_v5','workout_removed_v1','workout_tab_order_v1'];
+      const payload = {...driveData};
+      SYNC_KEYS.forEach(k=>{
+        if(!(k in localPayload)) return; // 로컬에 없으면 건드리지 않음(Drive 값 유지)
+        if(MERGE_KEYS.includes(k)){
+          try{
+            const driveObj = driveData[k] ? JSON.parse(driveData[k]) : {};
+            const localObj = JSON.parse(localPayload[k]);
+            payload[k] = JSON.stringify({...driveObj, ...localObj});
+          } catch(e){ payload[k] = localPayload[k]; }
+        } else {
+          // 루틴 등 단일 값 키는 로컬(최근 수정)을 우선
+          payload[k] = localPayload[k];
+        }
+      });
       await gdWriteFile(GD_DATA_FILE, JSON.stringify(payload));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
@@ -847,7 +872,9 @@ ${jsonStr}
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
       document.getElementById('gdOverlay').classList.remove('open');
-      gdSyncDown(true).then(()=>{
+      // 로그인 전(토큰 없던 상태)에 만든 로컬 수정사항이 있을 수 있으므로
+      // 먼저 업로드(Drive와 병합)한 뒤에 다운로드해야 데이터 유실이 없음
+      gdUpload().then(()=>gdSyncDown(true)).then(()=>{
         // 온보딩 중 로그인했으면 루틴 단계로 이어가기
         if(localStorage.getItem('onboard_pending')){
           localStorage.removeItem('onboard_pending');
