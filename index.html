@@ -170,6 +170,66 @@
     .vdrum-scroll::-webkit-scrollbar{display:none;}
     .vdrum-item{height:32px;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--subtext);font-family:'Space Grotesk',sans-serif;}
     .vdrum-item.active{font-size:17px;font-weight:800;color:var(--sky);}
+
+    /* 대회 일정 */
+    .race-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
+    .race-overlay.open{display:flex;}
+    .race-box{background:var(--surface);border:1px solid rgba(163,230,53,0.2);border-radius:18px;width:100%;max-width:420px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;}
+    .race-head{padding:18px 20px 12px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .race-head-title{font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;}
+    .race-head-btn{background:none;border:none;color:var(--subtext);cursor:pointer;font-size:18px;padding:4px;}
+    .race-body{padding:14px 16px;overflow-y:auto;flex:1;}
+    .race-summary{display:flex;gap:10px;margin-bottom:12px;}
+    .race-summary-item{font-size:11px;color:var(--subtext);}
+    .race-filter-row{display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.05);border-radius:12px;padding:4px;}
+    .race-filter-btn{flex:1;padding:7px;border-radius:9px;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;background:none;color:var(--subtext);}
+    .race-filter-btn.active{background:rgba(163,230,53,0.15);color:var(--lime);}
+    .race-year-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:4px 2px;}
+    .race-year-label{font-size:14px;font-weight:800;color:var(--lime);font-family:'Space Grotesk',sans-serif;}
+    .race-year-count{font-size:11px;color:var(--subtext);}
+    .race-year-btns{display:flex;gap:6px;}
+    .race-year-action{display:flex;align-items:center;gap:4px;border-radius:8px;padding:6px 11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+    .race-year-save{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--subtext);}
+    .race-year-share{background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);color:var(--sky);}
+    .race-card{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:14px;background:var(--card);border:1px solid rgba(255,255,255,0.06);cursor:pointer;margin-bottom:8px;}
+    .race-card-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:17px;}
+    .race-card-info{flex:1;min-width:0;}
+    .race-card-name{font-size:13px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .race-card-meta{display:flex;gap:6px;align-items:center;margin-top:3px;}
+    .race-card-date{font-size:11px;color:var(--subtext);}
+    .race-card-event{font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;}
+    .race-card-memo{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .race-badge{font-size:10px;border-radius:6px;padding:1px 5px;flex-shrink:0;font-weight:700;}
+    .race-badge-yes{background:rgba(163,230,53,0.18);color:var(--lime);border:1px solid rgba(163,230,53,0.3);}
+    .race-badge-maybe{background:rgba(251,191,36,0.18);color:var(--amber);border:1px solid rgba(251,191,36,0.3);}
+    .race-card-del{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;flex-shrink:0;font-size:15px;}
+    .race-add-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px;border-radius:12px;background:rgba(163,230,53,0.08);border:1px dashed rgba(163,230,53,0.3);color:var(--lime);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-top:4px;}
+    .race-info-box{background:rgba(163,230,53,0.06);border:1px solid rgba(163,230,53,0.15);border-radius:12px;padding:12px 14px;margin-top:12px;}
+    .race-info-title{font-size:12px;color:var(--lime);font-weight:700;margin-bottom:4px;}
+    .race-info-desc{font-size:11px;color:var(--subtext);line-height:1.6;}
+    /* 대회 폼 */
+    .race-form-overlay{display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;}
+    .race-form-overlay.open{display:flex;}
+    .race-form-sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;max-height:90vh;overflow-y:auto;font-family:'Noto Sans KR',sans-serif;}
+    .race-form-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .race-form-title{font-size:16px;font-weight:800;color:#fff;}
+    .race-form-label{font-size:11px;color:var(--subtext);margin-bottom:6px;font-weight:700;display:block;}
+    .race-form-input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);padding:10px 12px;font-size:14px;font-family:'Noto Sans KR',sans-serif;width:100%;box-sizing:border-box;outline:none;}
+    .race-form-input:focus{border-color:rgba(163,230,53,0.4);}
+    .race-sport-row{display:flex;flex-wrap:wrap;gap:6px;}
+    .race-sport-btn{padding:7px 11px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:700;font-family:'Noto Sans KR',sans-serif;}
+    .race-part-row{display:flex;gap:8px;}
+    .race-part-btn{flex:1;padding:10px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;}
+    .race-save-btn{width:100%;padding:14px;border-radius:14px;border:none;font-size:15px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+    /* 삭제 확인 */
+    .race-confirm-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;}
+    .race-confirm-overlay.open{display:flex;}
+    .race-confirm-box{background:var(--surface);border-radius:18px;padding:24px 22px;width:100%;max-width:320px;font-family:'Noto Sans KR',sans-serif;border:1px solid rgba(255,255,255,0.08);}
+    .race-confirm-msg{font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.5;}
+    .race-confirm-sub{font-size:12px;color:var(--subtext);margin-bottom:20px;}
+    .race-confirm-btns{display:flex;gap:8px;}
+    .race-confirm-cancel{flex:1;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+    .race-confirm-del{flex:1;padding:11px;border-radius:10px;border:none;background:var(--rose);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     .nav-btn:hover{background:rgba(163,230,53,0.16);}
     .nav-btn-prev{position:absolute;left:0;}
     .nav-btn-next{position:absolute;right:0;}
@@ -530,7 +590,8 @@
     'workout_notes_v4','workout_actual_v4','workout_custom_v4',
     'workout_plan_name_v6','workout_done_v4','workout_extra_v5',
     'workout_removed_v1','workout_tab_order_v1','workout_routine_v2',
-    'workout_routine_history_v1','workout_user_default_v1'
+    'workout_routine_history_v1','workout_user_default_v1',
+    'race_schedule_v1','workout_race_override_v1'
   ];
 
   let gdToken = null;
@@ -690,9 +751,13 @@
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
       if(document.readyState === 'complete'){
+        if(typeof raceApplyToCards==='function') raceApplyToCards(true);
         if(window.renderSlides) window.renderSlides();
       } else {
-        window.addEventListener('load', ()=>{ if(window.renderSlides) window.renderSlides(); }, {once:true});
+        window.addEventListener('load', ()=>{
+          if(typeof raceApplyToCards==='function') raceApplyToCards(true);
+          if(window.renderSlides) window.renderSlides();
+        }, {once:true});
       }
     } catch(e){gdSetStatus('error');}
     gdSyncing=false;
@@ -858,6 +923,20 @@ ${jsonStr}
 
   // ── 페이지 로드 ──
   window.addEventListener('load',()=>{
+    // 대회 일정 → 메인 카드 초기 반영
+    // 기존에 EXTRA_KEY가 객체 배열로 오염됐을 경우 정리
+    try{
+      const ex=JSON.parse(localStorage.getItem('workout_extra_v5')||'{}');
+      let dirty=false;
+      Object.keys(ex).forEach(dk=>{
+        if(Array.isArray(ex[dk])){
+          const cleaned=ex[dk].filter(t=>typeof t==='string');
+          if(cleaned.length!==ex[dk].length){ ex[dk]=cleaned; dirty=true; }
+        }
+      });
+      if(dirty) localStorage.setItem('workout_extra_v5', JSON.stringify(ex));
+    }catch(e){}
+    if(typeof raceApplyToCards === 'function') raceApplyToCards();
     // 저장된 모드로 상태바 초기화
     const savedMode = localStorage.getItem('gd_mode')||'drive';
     const icon=document.getElementById('gdStatusIcon');
@@ -918,6 +997,32 @@ ${jsonStr}
   </script>
 </head>
 <body>
+<!-- 대회 일정 -->
+<div class="race-overlay" id="raceOverlay">
+  <div class="race-box">
+    <div class="race-head">
+      <div class="race-head-title">🏅 대회 일정</div>
+      <button class="race-head-btn" id="raceCloseBtn">✕</button>
+    </div>
+    <div class="race-body" id="raceBody"></div>
+  </div>
+</div>
+<!-- 대회 추가/수정 폼 -->
+<div class="race-form-overlay" id="raceFormOverlay">
+  <div class="race-form-sheet" id="raceFormSheet"></div>
+</div>
+<!-- 삭제 확인 -->
+<div class="race-confirm-overlay" id="raceConfirmOverlay">
+  <div class="race-confirm-box">
+    <div class="race-confirm-msg" id="raceConfirmMsg"></div>
+    <div class="race-confirm-sub">삭제된 대회는 복구할 수 없어요.</div>
+    <div class="race-confirm-btns">
+      <button class="race-confirm-cancel" id="raceConfirmCancel">취소</button>
+      <button class="race-confirm-del" id="raceConfirmDel">삭제</button>
+    </div>
+  </div>
+</div>
+
 <!-- 러닝 페이스 계산기 -->
 <div class="pace-overlay" id="paceOverlay">
   <div class="pace-box">
@@ -1494,6 +1599,7 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
   const restItems=plan.filter(p=>p.type==='rest');
   allItems.push(...restItems);
 
+
   // 필터 적용
   const originalNonRest=allItems.filter(item=>item.type!=='rest');
   const filteredNonRest=originalNonRest.filter(item=>activeFilters.has(item.type));
@@ -1618,6 +1724,10 @@ function buildSlideHTML(ws){
               <div class="addon-item-icon" style="background:rgba(56,189,248,0.13);">🏃</div>
               <div><div class="addon-item-name">러닝 페이스 계산기</div><div class="addon-item-desc">목표기록·페이스·트랙·트레드밀</div></div>
             </button>
+            <button class="addon-item" data-addon="race">
+              <div class="addon-item-icon" style="background:rgba(163,230,53,0.13);">🏅</div>
+              <div><div class="addon-item-name">대회 일정</div><div class="addon-item-desc">참가 대회 관리 · 메인 카드 연동</div></div>
+            </button>
           </div>
         </div>
         <button class="nav-btn" id="searchBtn" title="메모 검색">🔍</button>
@@ -1689,6 +1799,7 @@ function wireNav(){
     };
   });
   document.querySelectorAll('.addon-item[data-addon="pace"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonPace(); });
+  document.querySelectorAll('.addon-item[data-addon="race"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonRace(); });
   applyAddonDropdownState();
   document.querySelectorAll('#navCenter').forEach(b=>b.onclick=e=>{
     if(e.target.closest('.this-week-btn')) return;
@@ -1885,8 +1996,11 @@ function renderModalTabs(){
     const active=t.type===activeType;
     const icon=typeIcon(t.type);
     const lbl=typeName(t.type);
-    // 탭이 1개여도 × 버튼 표시 (모두 삭제 시 휴식일)
-    const removeBtn=`<span class="tab-remove" data-removetype="${t.type}" title="탭 삭제">×</span>`;
+    // 대회가 연동된 탭은 × 버튼 비활성화
+    const hasRace = (typeof raceGetOverride==='function') && !!raceGetOverride(dk, t.type);
+    const removeBtn = hasRace
+      ? `<span class="tab-remove" style="opacity:0.25;cursor:not-allowed;" title="대회가 연동된 항목은 삭제할 수 없어요">×</span>`
+      : `<span class="tab-remove" data-removetype="${t.type}" title="탭 삭제">×</span>`;
     return`<button class="modal-tab${active?` active-${t.type}`:''}" data-tabtype="${t.type}" draggable="true"><span class="tab-icon">${icon}</span><span>${lbl}</span>${removeBtn}</button>`;
   }).join('');
 
@@ -2042,7 +2156,15 @@ function buildPane(item){
     <div class="m-section">
       <div class="m-section-label">기본 계획</div>
       <div class="plan-name-row" id="planRow-${type}">
-        <span class="plan-name-val" id="planNameVal-${type}">${esc(planName)}</span>
+        ${(()=>{
+          const raceInfo = (typeof raceGetOverride==='function') ? raceGetOverride(dk,type) : null;
+          if(raceInfo){
+            return `<span class="plan-name-val race-plan-link" id="planNameVal-${type}" data-raceid="${raceInfo.id}" style="color:var(--lime);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">
+              ${esc(planName)}
+            </span>`;
+          }
+          return `<span class="plan-name-val" id="planNameVal-${type}">${esc(planName)}</span>`;
+        })()}
       </div>
     </div>
     <!-- ② 변경 계획 -->
@@ -2098,6 +2220,15 @@ function buildPane(item){
 
 function bindPaneEvents(){
   const {dk}=ctx;
+
+  // 대회명 링크 클릭 → 대회 정보 팝업
+  document.querySelectorAll('.race-plan-link').forEach(el=>{
+    el.onclick=e=>{
+      e.stopPropagation();
+      const raceId=el.dataset.raceid;
+      openRaceInfoFromModal(raceId);
+    };
+  });
 
   // plan name edit
   // chip remove
@@ -2348,7 +2479,16 @@ async function refreshPane(type){
 document.getElementById('modalClose').onclick=closeModal;
 document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('modalOverlay'))closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePicker();closeModal();}});
-function closeModal(){document.getElementById('modalOverlay').classList.remove('open');document.body.style.overflow='';ctx={};}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow='';
+  ctx={};
+  // 대회일로 이동 후 모달 닫히면 대회일정 다시 열기
+  if(window._reopenRaceAfterModal){
+    window._reopenRaceAfterModal = false;
+    setTimeout(()=>openAddonRace(), 50);
+  }
+}
 
 /* ══ PICKER ══ */
 let pickerType='',pickerSel=[],editingId=null,confirmDelId=null;
@@ -2984,6 +3124,723 @@ function renderPaceTreadmillTab(body){
     inp.onkeydown=e=>{ if(e.key==='Enter') commit(); };
   };
 }
+
+/* ══ Add-on: 대회 일정 ══ */
+const RACE_STORAGE_KEY = 'race_schedule_v1';
+const RACE_SPORT_TYPES = [
+  {id:'run',      icon:'🏃', name:'러닝',        color:'var(--sky)',    rgb:'56,189,248'},
+  {id:'swim',     icon:'🏊', name:'수영',        color:'var(--purple)', rgb:'192,132,252'},
+  {id:'bike',     icon:'🚴', name:'자전거',      color:'var(--green)',  rgb:'74,222,128'},
+  {id:'tennis',   icon:'🎾', name:'테니스',      color:'var(--amber)',  rgb:'251,191,36'},
+  {id:'golf',     icon:'⛳', name:'골프',        color:'var(--lime)',   rgb:'163,230,53'},
+  {id:'strength', icon:'💪', name:'보강운동',    color:'var(--rose)',   rgb:'251,113,133'},
+];
+const RACE_PARTICIPATE = [
+  {id:'yes',   label:'참가',    color:'var(--lime)',  rgb:'163,230,53'},
+  {id:'maybe', label:'검토 중', color:'var(--amber)', rgb:'251,191,36'},
+  {id:'no',    label:'미참가',  color:'var(--subtext)',rgb:'122,158,122'},
+];
+
+function raceGetSports(id){ return RACE_SPORT_TYPES.find(t=>t.id===id)||RACE_SPORT_TYPES[0]; }
+function raceGetPart(id){ return RACE_PARTICIPATE.find(p=>p.id===id)||RACE_PARTICIPATE[0]; }
+
+function raceLoad(){ try{ return JSON.parse(localStorage.getItem(RACE_STORAGE_KEY)||'[]'); }catch(e){ return []; } }
+function raceSave(list){ try{ localStorage.setItem(RACE_STORAGE_KEY, JSON.stringify(list)); }catch(e){} }
+
+function raceFmtShort(ds){
+  if(!ds) return '';
+  const d=new Date(ds), days=['일','월','화','수','목','금','토'];
+  return `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
+}
+function raceFmtFull(ds){
+  if(!ds) return '';
+  const d=new Date(ds), days=['일','월','화','수','목','금','토'];
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+let raceFilter='all';
+let raceCollapsed={};
+let raceConfirmCb=null;
+// 연도 선택: 저장된 값 우선, 없으면 현재 연도를 기본값으로
+let raceSelectedYear=(()=>{
+  const saved=localStorage.getItem('race_selected_year');
+  if(saved) return saved;
+  const y=String(new Date().getFullYear());
+  localStorage.setItem('race_selected_year', y);
+  return y;
+})();
+
+function openAddonRace(){
+  addonDropdownOpen=false; applyAddonDropdownState();
+  document.getElementById('raceOverlay').classList.add('open');
+  renderRaceBody();
+}
+function closeAddonRace(){
+  document.getElementById('raceOverlay').classList.remove('open');
+}
+
+function renderRaceBody(){
+  const races = raceLoad();
+  const allYears = [...new Set(races.map(r=>new Date(r.date).getFullYear()).filter(Boolean))].sort();
+
+  // 선택된 연도가 더 이상 없으면 null로 초기화
+  if(raceSelectedYear && !allYears.includes(+raceSelectedYear)) raceSelectedYear=null;
+
+  const filtered = races
+    .filter(r=> raceFilter==='all' || r.participate===raceFilter)
+    .filter(r=> !raceSelectedYear || new Date(r.date).getFullYear()===+raceSelectedYear);
+
+  const byYear = filtered.reduce((acc,r)=>{
+    const y=new Date(r.date).getFullYear()||'?';
+    if(!acc[y]) acc[y]=[];
+    acc[y].push(r);
+    return acc;
+  },{});
+  const years = Object.keys(byYear).sort();
+
+  const yesCount = races.filter(r=>r.participate==='yes').length;
+  const maybeCount = races.filter(r=>r.participate==='maybe').length;
+
+  // 연도 드롭다운 옵션
+  const yearOptions = ['all',...allYears].map(y=>
+    `<option value="${y}" ${(raceSelectedYear===String(y)||(!raceSelectedYear&&y==='all'))?'selected':''}>
+      ${y==='all'?'전체 연도':y+'년'}
+    </option>`
+  ).join('');
+
+  let html=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="race-summary" style="margin-bottom:0;">
+        <span class="race-summary-item">총 ${races.length}개</span>
+        <span class="race-summary-item" style="color:var(--lime)">참가 ${yesCount}개</span>
+        <span class="race-summary-item" style="color:var(--amber)">검토 중 ${maybeCount}개</span>
+      </div>
+      <div class="race-year-btns">
+        <div style="position:relative;display:inline-block;">
+          <button class="race-year-action race-year-save" data-savemenu="${raceSelectedYear||'all'}">💾 저장하기</button>
+          <div id="raceSaveMenu" style="display:none;position:absolute;right:0;top:36px;z-index:100;background:var(--surface);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+            <button style="display:block;width:100%;padding:8px 12px;border:none;background:none;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;border-radius:8px;text-align:left;font-family:'Noto Sans KR',sans-serif;" data-savehtml="${raceSelectedYear||'all'}">🌐 HTML 파일</button>
+            <button style="display:block;width:100%;padding:8px 12px;border:none;background:none;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;border-radius:8px;text-align:left;font-family:'Noto Sans KR',sans-serif;" data-savecsv="${raceSelectedYear||'all'}">📊 CSV 파일</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="race-filter-row">
+      <button class="race-filter-btn${raceFilter==='all'?' active':''}" data-rf="all">전체</button>
+      <button class="race-filter-btn${raceFilter==='yes'?' active':''}" data-rf="yes">✅ 참가</button>
+      <button class="race-filter-btn${raceFilter==='maybe'?' active':''}" data-rf="maybe">🤔 검토 중</button>
+    </div>`;
+
+  // 연도 드롭다운 — 항상 한 번만 표시
+  html+=`
+    <div class="race-year-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select id="raceYearSelect" style="background:var(--card);border:1px solid rgba(163,230,53,0.25);border-radius:9px;color:var(--lime);padding:6px 10px;font-size:13px;font-weight:700;font-family:'Space Grotesk',sans-serif;cursor:pointer;outline:none;">
+          ${yearOptions}
+        </select>
+        ${years.length>0?`<span class="race-year-count">${filtered.length}개</span>`:''}
+      </div>
+      <button id="raceAddBtn" style="display:flex;align-items:center;gap:4px;background:rgba(163,230,53,0.12);border:1px solid rgba(163,230,53,0.3);color:var(--lime);border-radius:9px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        ＋ 대회 추가
+      </button>
+    </div>`;
+
+  if(years.length===0){
+    html+=`<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:13px;">대회를 추가해보세요!</div>`;
+  } else {
+    years.forEach(year=>{
+      const list=[...byYear[year]].sort((a,b)=>new Date(a.date)-new Date(b.date));
+      if(open){
+        list.forEach(r=>{
+          const t=raceGetSports(r.sport), p=raceGetPart(r.participate);
+          const badge = r.participate==='yes'
+            ? `<span class="race-badge race-badge-yes">참가</span>`
+            : r.participate==='maybe'
+            ? `<span class="race-badge race-badge-maybe">검토 중</span>`
+            : '';
+          html+=`
+            <div class="race-card" data-rc="${r.id}">
+              <div class="race-card-icon" style="background:rgba(${t.rgb},0.12);border:1px solid rgba(${t.rgb},0.25);">${t.icon}</div>
+              <div class="race-card-info">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div class="race-card-name">${r.name}</div>${badge}
+                </div>
+                <div class="race-card-meta">
+                  <span class="race-card-date">${raceFmtShort(r.date)}</span>
+                  ${r.event?`<span class="race-card-event" style="color:${t.color};background:rgba(${t.rgb},0.12);">${r.event}</span>`:''}
+                </div>
+                ${r.memo?`<div class="race-card-memo">${r.memo}</div>`:''}
+              </div>
+              <button class="race-card-del" data-rdel="${r.id}">✕</button>
+            </div>`;
+        });
+      }
+    });
+  }
+
+  html+=`
+    <div class="race-info-box">
+      <div class="race-info-title">💡 메인 카드 연동</div>
+      <div class="race-info-desc"><span style="color:var(--lime)">참가</span>로 설정된 대회는 해당 날짜 기본 계획에 <strong style="color:var(--text)">'대회명 - 시합종목'</strong>으로 자동 반영돼요.</div>
+    </div>`;
+
+  const body=document.getElementById('raceBody');
+  body.innerHTML=html;
+
+  // 이벤트 바인딩
+  const yearSelect=document.getElementById('raceYearSelect');
+  if(yearSelect) yearSelect.onchange=()=>{
+    raceSelectedYear = yearSelect.value==='all' ? null : yearSelect.value;
+    localStorage.setItem('race_selected_year', raceSelectedYear||'all');
+    renderRaceBody();
+  };
+  body.querySelectorAll('[data-rf]').forEach(btn=>{
+    btn.onclick=()=>{ raceFilter=btn.dataset.rf; renderRaceBody(); };
+  });
+  body.querySelectorAll('[data-savemenu]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const menu=document.getElementById('raceSaveMenu');
+      if(menu) menu.style.display=menu.style.display==='none'?'block':'none';
+    };
+  });
+  body.querySelectorAll('[data-savehtml]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const menu=document.getElementById('raceSaveMenu');
+      if(menu) menu.style.display='none';
+      const y=btn.dataset.savehtml;
+      y==='all' ? allYears.forEach(yr=>raceExportHTML(yr)) : raceExportHTML(y);
+    };
+  });
+  body.querySelectorAll('[data-savecsv]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const menu=document.getElementById('raceSaveMenu');
+      if(menu) menu.style.display='none';
+      const y=btn.dataset.savecsv;
+      y==='all' ? allYears.forEach(yr=>raceExportXLSX(yr)) : raceExportXLSX(y);
+    };
+  });
+  document.addEventListener('click', ()=>{
+    const menu=document.getElementById('raceSaveMenu');
+    if(menu) menu.style.display='none';
+  }, {once:true});
+  body.querySelectorAll('[data-rc]').forEach(card=>{
+    card.onclick=e=>{
+      if(e.target.closest('[data-rdel]')) return;
+      const id=card.dataset.rc;
+      const race=raceLoad().find(r=>r.id===id);
+      if(race) openRaceActionSheet(race);
+    };
+  });
+  body.querySelectorAll('[data-rdel]').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const id=btn.dataset.rdel;
+      const race=raceLoad().find(r=>r.id===id);
+      if(!race) return;
+      document.getElementById('raceConfirmMsg').textContent=`'${race.name}'을(를) 삭제하시겠습니까?`;
+      raceConfirmCb=()=>{ raceSave(raceLoad().filter(r=>r.id!==id)); raceApplyToCards(); renderRaceBody(); };
+      document.getElementById('raceConfirmOverlay').classList.add('open');
+    };
+  });
+  const addBtn=document.getElementById('raceAddBtn');
+  if(addBtn) addBtn.onclick=()=>openRaceForm(null);
+}
+
+// 대회 카드 클릭 시 액션 시트 (대회일로 이동 / 수정하기)
+function openRaceActionSheet(race){
+  let el = document.getElementById('raceActionSheet');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'raceActionSheet';
+    el.style.cssText = 'display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;';
+    document.body.appendChild(el);
+  }
+  const t = raceGetSports(race.sport);
+  el.innerHTML = `
+    <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;font-family:'Noto Sans KR',sans-serif;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+        <div style="font-size:22px;">${t.icon}</div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;">${esc(race.name)}</div>
+          <div style="font-size:12px;color:var(--subtext);margin-top:2px;">${raceFmtFull(race.date)}${race.event?' · '+esc(race.event):''}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button id="raceActionGoto" style="width:100%;padding:14px;border-radius:12px;background:rgba(163,230,53,0.1);border:1px solid rgba(163,230,53,0.25);color:var(--lime);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          📅 대회일로 이동
+        </button>
+        <button id="raceActionEdit" style="width:100%;padding:14px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          ✏️ 수정하기
+        </button>
+        <button id="raceActionCancel" style="width:100%;padding:12px;border-radius:12px;background:none;border:none;color:var(--subtext);font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          취소
+        </button>
+      </div>
+    </div>`;
+  el.style.display = 'flex';
+  el.onclick = e=>{ if(e.target===el) closeRaceActionSheet(); };
+
+  document.getElementById('raceActionCancel').onclick = ()=>closeRaceActionSheet();
+
+  document.getElementById('raceActionEdit').onclick = ()=>{
+    closeRaceActionSheet();
+    openRaceForm(race);
+  };
+
+  document.getElementById('raceActionGoto').onclick = ()=>{
+    closeRaceActionSheet();
+    closeAddonRace();
+    window._reopenRaceAfterModal = true;
+    // 대회일정이 쌓은 popup 스택을 base로 내려서
+    // openModal의 pushState가 [base, popup]을 만들도록 함
+    const d = new Date(race.date);
+    curWeek = getWeekStart(d);
+    renderSlides();
+    setTimeout(()=>{
+      const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const card=document.querySelector(`[data-datekey="${dk}"]`);
+      if(card) card.click();
+    }, 150);
+  };
+}
+function closeRaceActionSheet(){
+  const el = document.getElementById('raceActionSheet');
+  if(el) el.style.display = 'none';
+}
+
+function openRaceForm(race, refreshModalAfterSave=false, _originalRace=null){
+  const sheet=document.getElementById('raceFormSheet');
+  const isEdit=!!(race && race.id);
+  const form=race||{sport:'run',name:'',date:'',event:'',participate:'yes',memo:''};
+  // 원본 대회 정보 보존 (재귀 호출 시에도 유지)
+  const originalRace = _originalRace || (isEdit ? {...race} : null);
+
+  const sportBtns=RACE_SPORT_TYPES.map(t=>`
+    <button type="button" class="race-sport-btn" data-sp="${t.id}"
+      style="background:${form.sport===t.id?`rgba(${t.rgb},0.18)`:'rgba(255,255,255,0.05)'};
+             border:1px solid ${form.sport===t.id?t.color:'rgba(255,255,255,0.1)'};
+             color:${form.sport===t.id?t.color:'var(--subtext)'};">
+      ${t.icon} ${t.name}
+    </button>`).join('');
+
+  const partBtns=RACE_PARTICIPATE.map(p=>`
+    <button type="button" class="race-part-btn" data-pp="${p.id}"
+      style="background:${form.participate===p.id?`rgba(${p.rgb},0.18)`:'rgba(255,255,255,0.04)'};
+             border:1px solid ${form.participate===p.id?p.color:'rgba(255,255,255,0.1)'};
+             color:${form.participate===p.id?p.color:'var(--subtext)'};">
+      ${p.label}
+    </button>`).join('');
+
+  sheet.innerHTML=`
+    <div class="race-form-head">
+      <div class="race-form-title">${isEdit?'대회 수정':'대회 추가'}</div>
+      <button class="race-head-btn" id="raceFormClose">✕</button>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label class="race-form-label">운동 종목</label>
+      <div class="race-sport-row">${sportBtns}</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">대회명</label>
+      <input id="rfName" class="race-form-input" placeholder="대회명을 입력하세요" value="${form.name||''}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">날짜</label>
+      <input id="rfDate" type="date" class="race-form-input" style="color-scheme:dark;" value="${form.date||''}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">시합 종목 <span style="color:var(--muted);font-weight:400;">(예: 풀, 하프, 10K)</span></label>
+      <input id="rfEvent" class="race-form-input" placeholder="풀 / 하프 / 10K / 5K ..." value="${form.event||''}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">참가 여부</label>
+      <div class="race-part-row">${partBtns}</div>
+    </div>
+    <div style="margin-bottom:24px;">
+      <label class="race-form-label">메모</label>
+      <textarea id="rfMemo" class="race-form-input" rows="3" placeholder="목표 기록, 참고사항 등..." style="resize:none;line-height:1.6;">${form.memo||''}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;">
+      ${isEdit ? `<button class="race-save-btn" id="rfShare" style="flex:1;background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">↑ 공유하기</button>` : ''}
+      <button class="race-save-btn" id="rfSave"
+        style="flex:${isEdit?'2':'1'};background:var(--lime);color:#0A130A;">저장</button>
+    </div>
+  `;
+
+  // 현재 폼 상태
+  let cur={...form};
+
+  document.getElementById('raceFormClose').onclick=()=>closeRaceForm();
+
+  // 공유하기 (수정 모드일 때만 표시)
+  if(isEdit && document.getElementById('rfShare')){
+    document.getElementById('rfShare').onclick=()=>{
+      // 현재 폼 입력값 기준으로 공유
+      const shareRace={
+        ...cur,
+        name: document.getElementById('rfName')?.value.trim()||cur.name,
+        date: document.getElementById('rfDate')?.value||cur.date,
+        event: document.getElementById('rfEvent')?.value.trim()||cur.event,
+        memo: document.getElementById('rfMemo')?.value.trim()||cur.memo,
+      };
+      raceShareOne(shareRace);
+    };
+  }
+
+
+  sheet.querySelectorAll('[data-sp]').forEach(btn=>{
+    btn.onclick=()=>{ cur.sport=btn.dataset.sp; openRaceForm({...cur, id:race?.id}, refreshModalAfterSave, originalRace); };
+  });
+  sheet.querySelectorAll('[data-pp]').forEach(btn=>{
+    btn.onclick=()=>{ cur.participate=btn.dataset.pp; openRaceForm({...cur, id:race?.id}, refreshModalAfterSave, originalRace); };
+  });
+
+  document.getElementById('rfSave').onclick=()=>{
+    cur.name=document.getElementById('rfName').value.trim();
+    cur.date=document.getElementById('rfDate').value;
+    cur.event=document.getElementById('rfEvent').value.trim();
+    cur.memo=document.getElementById('rfMemo').value.trim();
+    if(!cur.name||!cur.date){ showToast('대회명과 날짜를 입력해주세요.'); return; }
+
+    // 종목/날짜/참가여부 변경 시 모달 닫고 메인으로
+    const keyChanged = refreshModalAfterSave && isEdit && originalRace &&
+      (cur.sport !== originalRace.sport ||
+       cur.date  !== originalRace.date  ||
+       (originalRace.participate === 'yes' && cur.participate !== 'yes'));
+
+    const list=raceLoad();
+    if(isEdit){
+      const idx=list.findIndex(r=>r.id===race.id);
+      if(idx>=0) list[idx]={...cur};
+    } else {
+      cur.id=Date.now().toString();
+      list.push(cur);
+    }
+    raceSave(list);
+    raceApplyToCards(keyChanged ? false : refreshModalAfterSave);
+    closeRaceForm();
+    renderRaceBody();
+
+    if(keyChanged){
+      // 종목/날짜 변경 → 모달 닫고 메인 화면으로
+      if(window.closeModal) closeModal();
+      if(window.renderSlides) renderSlides();
+    } else if(refreshModalAfterSave && ctx && ctx.dk){
+      // 이름/메모 등만 변경 → 모달 pane만 새로고침
+      renderModalTabs();
+      renderModalPanes();
+      setTimeout(()=>{ if(window.renderSlides) renderSlides(); }, 100);
+    }
+  };
+
+  document.getElementById('raceFormOverlay').classList.add('open');
+}
+
+function closeRaceForm(){
+  document.getElementById('raceFormOverlay').classList.remove('open');
+}
+
+// 저장하기 (HTML 다운로드)
+function raceExportHTML(year){
+  const races=raceLoad().filter(r=>new Date(r.date).getFullYear()===+year)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const rows=races.map(r=>{
+    const t=raceGetSports(r.sport), p=raceGetPart(r.participate);
+    const pc=p.id==='yes'?'#A3E635':p.id==='maybe'?'#FBBF24':'#7A9E7A';
+    return `<tr>
+      <td>${raceFmtFull(r.date)}</td>
+      <td>${t.icon} ${t.name}</td>
+      <td style="font-weight:700;">${r.name}</td>
+      <td style="font-weight:700;">${r.event||'-'}</td>
+      <td style="color:${pc};font-weight:700;">${p.label}</td>
+      <td style="color:#7A9E7A;">${r.memo||'-'}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>${year}년 대회 일정</title>
+<style>body{background:#0D1810;color:#D1E8D1;font-family:'Noto Sans KR',sans-serif;padding:32px 24px;margin:0;}
+h1{font-size:22px;font-weight:800;color:#A3E635;margin-bottom:4px;}
+.sub{font-size:13px;color:#7A9E7A;margin-bottom:28px;}
+table{width:100%;border-collapse:collapse;background:#141F14;border-radius:14px;overflow:hidden;}
+th{padding:12px 14px;background:#1A2B1A;color:#7A9E7A;font-size:11px;font-weight:700;text-align:left;letter-spacing:.06em;}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid #1A2B1A;}
+tr:last-child td{border-bottom:none;}</style></head>
+<body><h1>🏅 ${year}년 대회 일정</h1>
+<div class="sub">총 ${races.length}개 · 참가 ${races.filter(r=>r.participate==='yes').length}개</div>
+<table><thead><tr><th>날짜</th><th>종목</th><th>대회명</th><th>시합종목</th><th>참가여부</th><th>메모</th></tr></thead>
+<tbody>${rows}</tbody></table></body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`대회일정_${year}.html`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// 공유하기
+// XLSX 내보내기 (순수 JS, 라이브러리 없이 CSV→XLSX 유사 방식으로 생성)
+function raceExportXLSX(year){
+  const races=raceLoad()
+    .filter(r=>year==='all' || new Date(r.date).getFullYear()===+year)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  // TSV(탭 구분) → xlsx 대신 csv로 내보내기 (엑셀에서 바로 열림)
+  const header=['날짜','요일','운동 종목','대회명','시합 종목','참가 여부','메모'];
+  const days=['일','월','화','수','목','금','토'];
+  const rows=races.map(r=>{
+    const t=raceGetSports(r.sport), p=raceGetPart(r.participate);
+    const d=new Date(r.date);
+    return [
+      r.date,
+      days[d.getDay()]+'요일',
+      t.name,
+      r.name,
+      r.event||'',
+      p.label,
+      r.memo||''
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  const csv='\uFEFF'+[header.join(','),...rows].join('\n'); // BOM으로 한글 깨짐 방지
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const label=year==='all'?'전체':year;
+  a.href=url; a.download=`대회일정_${label}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// 대회 1개 텍스트 공유 (참가여부 제외)
+function raceShareOne(race){
+  const t = raceGetSports(race.sport);
+  const d = new Date(race.date);
+  const days = ['일','월','화','수','목','금','토'];
+  const lines = [
+    `🏅 ${race.name}`,
+    `📅 ${raceFmtFull(race.date)} (${days[d.getDay()]}요일)`,
+    `🏃 ${t.name}${race.event ? ' · ' + race.event : ''}`,
+  ];
+  if(race.memo) lines.push(`📝 ${race.memo}`);
+  const text = lines.join('\n');
+  if(navigator.share){
+    navigator.share({ title: race.name, text }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(()=>showToast('📋 클립보드에 복사됐어요!'))
+      .catch(()=>showToast(text));
+  }
+}
+
+function raceShareYear(year){
+  const allRaces=raceLoad();
+  const races=(year==='all' ? allRaces : allRaces.filter(r=>new Date(r.date).getFullYear()===+year))
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const title=year==='all'?'전체 대회 일정':`${year}년 대회 일정`;
+  const label=year==='all'?'전체':year;
+
+  // CSV 생성
+  const header=['날짜','요일','운동 종목','대회명','시합 종목','참가 여부','메모'];
+  const days=['일','월','화','수','목','금','토'];
+  const rows=races.map(r=>{
+    const t=raceGetSports(r.sport), p=raceGetPart(r.participate);
+    const d=new Date(r.date);
+    return [r.date, days[d.getDay()]+'요일', t.name, r.name, r.event||'', p.label, r.memo||'']
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  const csv='\uFEFF'+[header.join(','),...rows].join('\n');
+
+  if(navigator.share && navigator.canShare){
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const file=new File([blob],`대회일정_${label}.csv`,{type:'text/csv'});
+    if(navigator.canShare({files:[file]})){
+      navigator.share({title, files:[file]}).catch(()=>raceShareYearFallback(csv,label));
+      return;
+    }
+  }
+  raceShareYearFallback(csv, label);
+}
+function raceShareYearFallback(csv, label){
+  // 파일 공유 불가 시 다운로드로 대체
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`대회일정_${label}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast('📥 파일로 저장됐어요!');
+}
+
+// 참가 대회를 메인 카드(extra)에 반영
+
+
+// 모달에서 대회 정보 팝업 열기
+function openRaceInfoFromModal(raceId){
+  const race = raceLoad().find(r=>r.id===raceId);
+  if(!race) return;
+  const t = raceGetSports(race.sport);
+  const p = raceGetPart(race.participate);
+
+  let el = document.getElementById('raceInfoOverlay');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'raceInfoOverlay';
+    el.style.cssText='display:none;position:fixed;inset:0;z-index:750;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`
+    <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 22px 36px;font-family:'Noto Sans KR',sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(${t.rgb},0.15);border:1px solid rgba(${t.rgb},0.3);display:flex;align-items:center;justify-content:center;font-size:24px;">${t.icon}</div>
+          <div>
+            <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.3;">${esc(race.name)}</div>
+            <div style="font-size:12px;color:var(--subtext);margin-top:3px;">${t.name}</div>
+          </div>
+        </div>
+        <button onclick="closeRaceInfoFromModal()" style="background:none;border:none;color:var(--subtext);cursor:pointer;font-size:20px;padding:4px;">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:${race.memo?'10px':'16px'};">
+        <div style="background:var(--card);border-radius:12px;padding:14px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">날짜</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);">${raceFmtFull(race.date)}</div>
+        </div>
+        <div style="background:var(--card);border-radius:12px;padding:14px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">시합 종목</div>
+          <div style="font-size:14px;font-weight:700;color:${t.color};">${esc(race.event)||'-'}</div>
+        </div>
+        <div style="background:var(--card);border-radius:12px;padding:14px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">참가 여부</div>
+          <div style="font-size:14px;font-weight:700;color:${p.color};">${p.label}</div>
+        </div>
+      </div>
+      ${race.memo?`<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">메모</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.memo)}</div>
+      </div>`:''}
+      <div style="display:flex;gap:8px;margin-top:0;">
+        <button id="raceInfoShareBtn" style="flex:1;padding:14px;border-radius:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:var(--sky);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          ↑ 공유하기
+        </button>
+        <button id="raceInfoEditBtn" style="flex:1;padding:14px;border-radius:12px;background:rgba(163,230,53,0.1);border:1px solid rgba(163,230,53,0.25);color:var(--lime);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+          ✏️ 수정하기
+        </button>
+      </div>
+    </div>`;
+  el.style.display='flex';
+  el.onclick=e=>{ if(e.target===el) closeRaceInfoFromModal(); };
+
+  // 수정 버튼: 저장 후 카드+모달 새로고침
+  document.getElementById('raceInfoShareBtn').onclick=()=>raceShareOne(race);
+  document.getElementById('raceInfoEditBtn').onclick=()=>{
+    closeRaceInfoFromModal();
+    const r = raceLoad().find(r=>r.id===raceId);
+    if(!r) return;
+    openRaceForm(r, true); // true = 저장 후 모달 새로고침 플래그
+  };
+}
+function closeRaceInfoFromModal(){
+  const el=document.getElementById('raceInfoOverlay');
+  if(el) el.style.display='none';
+}
+
+
+/* ══ 대회 일정 → 메인 카드 연동 ══
+   저장 구조: 'workout_race_override_v1' = { "dk:type": raceId, ... }
+   - 참가 대회 설정 시: PLAN_KEY에 대회명 저장 + 없던 종목이면 EXTRA_KEY에 추가 + override 키에 기록
+   - 참가 해제/삭제 시: PLAN_KEY에서 대회명 제거(기본값으로 복원) + 추가했던 EXTRA_KEY 제거 + override 키 삭제
+*/
+const RACE_OVERRIDE_KEY = 'workout_race_override_v1';
+
+function raceOverrideLoad(){ try{ return JSON.parse(localStorage.getItem(RACE_OVERRIDE_KEY)||'{}'); }catch(e){ return {}; } }
+function raceOverrideSave(obj){ try{ localStorage.setItem(RACE_OVERRIDE_KEY, JSON.stringify(obj)); }catch(e){} }
+
+function raceDateKey(dateStr){
+  const d=new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// 대회 항목을 카드에 반영
+function raceApplyToCards(skipRender=false){
+  const races = raceLoad();
+  const overrides = raceOverrideLoad();
+  const plan = load(PLAN_KEY);
+  const extra = load(EXTRA_KEY);
+
+  // 1. 현재 override를 모두 제거 (clean slate)
+  Object.entries(overrides).forEach(([dktype, raceId]) => {
+    const [dk, type] = dktype.split(':type:');
+    // PLAN_KEY에서 대회명 제거 (해당 키가 여전히 override 값인 경우만)
+    const pKey = `${dk}:${type}`;
+    const race = races.find(r=>r.id===raceId);
+    const raceName = race ? `🏅 ${race.name}${race.event?' - '+race.event:''}` : null;
+    if(plan[pKey] && plan[pKey]===raceName) delete plan[pKey];
+    // EXTRA_KEY에서 override로 추가한 항목 제거 (override에 'extra:' 플래그가 있는 경우)
+    if(overrides[`extra:${dktype}`] && extra[dk]) {
+      extra[dk] = extra[dk].filter(t=>t!==type);
+      if(extra[dk].length===0) delete extra[dk];
+      delete overrides[`extra:${dktype}`];
+    }
+  });
+
+  // 2. 참가 대회만 새로 반영
+  const newOverrides = {};
+  races.filter(r=>r.participate==='yes'&&r.date).forEach(r=>{
+    const dk = raceDateKey(r.date);
+    const type = r.sport;
+    const raceName = `🏅 ${r.name}${r.event?' - '+r.event:''}`;
+    const dktype = `${dk}:type:${type}`;
+
+    // PLAN_KEY에 대회명 저장
+    plan[`${dk}:${type}`] = raceName;
+    newOverrides[dktype] = r.id;
+
+    // 루틴에 없던 종목이면 EXTRA_KEY에도 추가
+    const today0=new Date(); today0.setHours(0,0,0,0);
+    const cardDate=new Date(dk);
+    const {routine, anchor: wAnchor} = cardDate<today0 ? getRoutineForDate(cardDate) : getCurrentRoutineAndAnchor();
+    const anchorWS=getWeekStart(new Date(wAnchor));
+    const wIdx=((Math.round((getWeekStart(cardDate)-anchorWS)/(7*86400000))%routine.cycle)+routine.cycle)%routine.cycle;
+    const dayIdx=cardDate.getDay();
+    const dayPlan=getDayPlan(dayIdx,wIdx,routine);
+    const planHasType=dayPlan.some(p=>p.type===type&&p.type!=='rest');
+    const extraHasType=(extra[dk]||[]).includes(type);
+    if(!planHasType && !extraHasType){
+      if(!extra[dk]) extra[dk]=[];
+      extra[dk].push(type);
+      newOverrides[`extra:${dktype}`] = r.id; // extra로 추가했다고 표시
+    }
+  });
+
+  save(PLAN_KEY, plan);
+  save(EXTRA_KEY, extra);
+  raceOverrideSave(newOverrides);
+  if(!skipRender && window.renderSlides) renderSlides();
+}
+
+// 특정 날짜+종목의 대회 override 정보 반환
+function raceGetOverride(dk, type){
+  const overrides = raceOverrideLoad();
+  const raceId = overrides[`${dk}:type:${type}`];
+  if(!raceId) return null;
+  return raceLoad().find(r=>r.id===raceId)||null;
+}
+
+// 정적 요소 바인딩 (1회)
+(function initRaceOverlay(){
+  const closeBtn=document.getElementById('raceCloseBtn');
+  const overlay=document.getElementById('raceOverlay');
+  if(closeBtn) closeBtn.onclick=closeAddonRace;
+  if(overlay) overlay.onclick=e=>{ if(e.target===overlay) closeAddonRace(); };
+  const confirmCancel=document.getElementById('raceConfirmCancel');
+  const confirmDel=document.getElementById('raceConfirmDel');
+  const confirmOverlay=document.getElementById('raceConfirmOverlay');
+  if(confirmCancel) confirmCancel.onclick=()=>{ confirmOverlay.classList.remove('open'); raceConfirmCb=null; };
+  if(confirmDel) confirmDel.onclick=()=>{ if(raceConfirmCb) raceConfirmCb(); confirmOverlay.classList.remove('open'); raceConfirmCb=null; };
+  // 폼 오버레이 배경 클릭 닫기
+  const formOverlay=document.getElementById('raceFormOverlay');
+  if(formOverlay) formOverlay.onclick=e=>{ if(e.target===formOverlay) closeRaceForm(); };
+})();
 
 // 버튼 바인딩은 wireNav()에서 매 렌더링마다 수행 (헤더가 동적 생성되므로)
 
@@ -4017,6 +4874,11 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   const POPUPS=[
     {id:'photoViewer',    close:()=>document.getElementById('photoViewer')?.classList.remove('open')},
     {id:'paceOverlay',    close:()=>document.getElementById('paceOverlay')?.classList.remove('open')},
+    {id:'raceOverlay',    close:()=>document.getElementById('raceOverlay')?.classList.remove('open')},
+    {id:'raceFormOverlay',close:()=>closeRaceForm()},
+    {id:'raceConfirmOverlay',close:()=>{ document.getElementById('raceConfirmOverlay')?.classList.remove('open'); raceConfirmCb=null; }},
+    {id:'raceInfoOverlay',   close:()=>closeRaceInfoFromModal()},
+    {id:'raceActionSheet',   close:()=>closeRaceActionSheet()},
     {id:'calPickerOverlay',close:()=>document.getElementById('calPickerOverlay')?.classList.remove('open')},
     {id:'searchOverlay',  close:()=>document.getElementById('searchOverlay')?.classList.remove('open')},
     {id:'settingsOverlay',close:()=>document.getElementById('settingsOverlay')?.classList.remove('open')},
@@ -4024,34 +4886,37 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     {id:'modalOverlay',   close:()=>{ if(window.closeModal) closeModal(); }},
   ];
 
+  function isElOpen(el){ return el && (el.classList.contains('open') || el.style.display==='flex'); }
   function hasOpenPopup(){
-    return POPUPS.some(p=>{ const el=document.getElementById(p.id); return el&&el.classList.contains('open'); });
+    return POPUPS.some(p=>{ const el=document.getElementById(p.id); return isElOpen(el); });
   }
   function closeTopPopup(){
     for(const p of POPUPS){
       const el=document.getElementById(p.id);
-      if(el&&el.classList.contains('open')){ p.close(); return true; }
+      if(isElOpen(el)){ p.close(); return true; }
     }
     return false;
   }
 
-  // 페이지 로드 시 히스토리 스택을 깨끗하게: base + popup 두 단계만 유지
-  // base state로 교체 후 popup state를 앞에 추가
+  // 초기: base 위에 popup 1개 → popup에서 뒤로가기 = base 감지 = 팝업 닫기
+  // 팝업 없을 때 뒤로가기 = base 이하로 = 앱 종료
   history.replaceState({type:'base'},'','');
   history.pushState({type:'popup'},'','');
 
-  // 항상 popup state에 머물도록 유지
   window.addEventListener('popstate', e=>{
-    if(e.state?.type==='base'){
-      // base로 내려갔다 = 뒤로가기
-      if(closeTopPopup()){
-        // 팝업 닫았으면 다시 popup state로
-        history.pushState({type:'popup'},'','');
-      } else {
-        // 닫을 팝업 없으면 다시 popup state 유지 (앱에서 나가지 않음)
-        history.pushState({type:'popup'},'','');
-      }
+    if(e.state && e.state.type==='popup') return; // popup→popup은 무시
+    // base(또는 null) 도달 = 뒤로가기
+    const rio=document.getElementById('raceInfoOverlay');
+    if(rio && rio.style.display==='flex'){
+      closeRaceInfoFromModal();
+      history.pushState({type:'popup'},'','');
+      return;
     }
+    if(hasOpenPopup()){
+      closeTopPopup();
+      history.pushState({type:'popup'},'','');
+    }
+    // 열린 팝업 없으면 pushState 안 함 → 앱 종료 허용
   });
 })();
 renderSlides();
