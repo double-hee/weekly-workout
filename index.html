@@ -1929,6 +1929,7 @@ function openModal(dayIndex,dk,dateLabel,initialType=null,offset=null){
   });
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow='hidden';
+  if(typeof pushPopupState==='function') pushPopupState();
 }
 
 // localStorage에 저장된 extra 타입 가져오기 (planTypes에 없는 것)
@@ -2828,6 +2829,7 @@ function openAddonPace(){
   addonDropdownOpen = false;
   applyAddonDropdownState();
   document.getElementById('paceOverlay').classList.add('open');
+  if(typeof pushPopupState==='function') pushPopupState();
   renderPaceTabs();
   renderPaceBody();
 }
@@ -3173,6 +3175,7 @@ let raceSelectedYear=(()=>{
 function openAddonRace(){
   addonDropdownOpen=false; applyAddonDropdownState();
   document.getElementById('raceOverlay').classList.add('open');
+  if(typeof pushPopupState==='function') pushPopupState();
   renderRaceBody();
 }
 function closeAddonRace(){
@@ -3382,6 +3385,7 @@ function openRaceActionSheet(race){
       </div>
     </div>`;
   el.style.display = 'flex';
+  if(typeof pushPopupState==='function') pushPopupState();
   el.onclick = e=>{ if(e.target===el) closeRaceActionSheet(); };
 
   document.getElementById('raceActionCancel').onclick = ()=>closeRaceActionSheet();
@@ -3728,6 +3732,7 @@ function openRaceInfoFromModal(raceId){
       </div>
     </div>`;
   el.style.display='flex';
+  if(typeof pushPopupState==='function') pushPopupState();
   el.onclick=e=>{ if(e.target===el) closeRaceInfoFromModal(); };
 
   // 수정 버튼: 저장 후 카드+모달 새로고침
@@ -3972,6 +3977,7 @@ function openSettings(){
   injectWD(editRoutine);
 
   document.getElementById('settingsOverlay').classList.add('open');
+  if(typeof pushPopupState==='function') pushPopupState();
   document.body.style.overflow='hidden';
 
   // 최초 실행(기본값 없음) 시 버튼 조건부 표시
@@ -4435,6 +4441,7 @@ document.addEventListener('keydown',e=>{
 /* ══ SEARCH ══ */
 function openSearch(){
   document.getElementById('searchOverlay').classList.add('open');
+  if(typeof pushPopupState==='function') pushPopupState();
   document.body.style.overflow='hidden';
   document.getElementById('searchInput').focus();
   document.getElementById('searchInput').value='';
@@ -4898,25 +4905,29 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     return false;
   }
 
-  // 초기: base 위에 popup 1개 → popup에서 뒤로가기 = base 감지 = 팝업 닫기
-  // 팝업 없을 때 뒤로가기 = base 이하로 = 앱 종료
-  history.replaceState({type:'base'},'','');
-  history.pushState({type:'popup'},'','');
+  // 히스토리 전략:
+  // - 초기 & 팝업 없을 때: [google_login, app_main] → 뒤로가기 = app_main 제거 = 앱 종료
+  // - 팝업 열릴 때: pushState(popup) → 뒤로가기 = popup 제거 = 팝업만 닫힘
+  // OAuth 콜백 후 google_login 히스토리 위에 app_main을 쌓아서 뒤로가기가 앱 메인에서만 종료
+  history.replaceState({type:'app'},'','');
+
+  function pushPopupState(){ history.pushState({type:'popup'},'',''); }
+  function hasPopupState(){ return history.state && history.state.type==='popup'; }
 
   window.addEventListener('popstate', e=>{
-    if(e.state && e.state.type==='popup') return; // popup→popup은 무시
-    // base(또는 null) 도달 = 뒤로가기
-    const rio=document.getElementById('raceInfoOverlay');
-    if(rio && rio.style.display==='flex'){
-      closeRaceInfoFromModal();
-      history.pushState({type:'popup'},'','');
-      return;
+    if(e.state && e.state.type==='popup'){
+      // popup state 제거됨 = 팝업 뒤로가기
+      const rio=document.getElementById('raceInfoOverlay');
+      if(rio && rio.style.display==='flex'){
+        closeRaceInfoFromModal();
+        return;
+      }
+      if(hasOpenPopup()){
+        closeTopPopup();
+      }
+      // 팝업 닫혔으면 app state로 돌아옴 — 다음 뒤로가기는 앱 종료
     }
-    if(hasOpenPopup()){
-      closeTopPopup();
-      history.pushState({type:'popup'},'','');
-    }
-    // 열린 팝업 없으면 pushState 안 함 → 앱 종료 허용
+    // app state = 메인화면 → 뒤로가기 허용 (앱 종료)
   });
 })();
 renderSlides();
