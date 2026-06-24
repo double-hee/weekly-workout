@@ -3399,19 +3399,13 @@ function openRaceActionSheet(race){
   document.getElementById('raceActionGoto').onclick = ()=>{
     closeRaceActionSheet();
     closeAddonRace();
-    window._reopenRaceAfterModal = true;
+      window._reopenRaceAfterModal = true;
     const d = new Date(race.date);
     curWeek = getWeekStart(d);
     renderSlides();
-    setTimeout(()=>{
-      const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const card=document.querySelector(`[data-datekey="${dk}"]`);
-      if(!card) return;
-      const dayIndex = parseInt(card.dataset.dayindex);
-      const dateLabel = card.dataset.date;
-      const offset = card.dataset.offset;
-      openModal(dayIndex, dk, dateLabel, race.sport, offset);
-    }, 200);
+    const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const card=document.querySelector(`[data-datekey="${dk}"]`);
+    if(card) openModal(parseInt(card.dataset.dayindex), dk, card.dataset.date, race.sport, card.dataset.offset);
   };
 }
 function closeRaceActionSheet(){
@@ -4885,70 +4879,84 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   overlay.onclick=e=>{ if(e.target===overlay) overlay.classList.remove('open'); };
 })();
 
-/* ══ 뒤로가기 버튼 → 팝업 닫기 ══ */
+/* ══ 뒤로가기 버튼 → 팝업 번호 관리 ══ */
 (function(){
-  const POPUPS=[
-    {id:'photoViewer',    close:()=>document.getElementById('photoViewer')?.classList.remove('open')},
-    {id:'paceOverlay',    close:()=>document.getElementById('paceOverlay')?.classList.remove('open')},
-    {id:'raceOverlay',    close:()=>document.getElementById('raceOverlay')?.classList.remove('open')},
-    {id:'raceFormOverlay',close:()=>closeRaceForm()},
-    {id:'raceConfirmOverlay',close:()=>{ document.getElementById('raceConfirmOverlay')?.classList.remove('open'); raceConfirmCb=null; }},
-    {id:'raceInfoOverlay',   close:()=>closeRaceInfoFromModal()},
-    {id:'raceActionSheet',   close:()=>closeRaceActionSheet()},
-    {id:'calPickerOverlay',close:()=>document.getElementById('calPickerOverlay')?.classList.remove('open')},
-    {id:'searchOverlay',  close:()=>document.getElementById('searchOverlay')?.classList.remove('open')},
-    {id:'settingsOverlay',close:()=>document.getElementById('settingsOverlay')?.classList.remove('open')},
-    {id:'gdOverlay',      close:()=>document.getElementById('gdOverlay')?.classList.remove('open')},
-    {id:'modalOverlay',   close:()=>{ if(window.closeModal) closeModal(); }},
-  ];
-
-  function isElOpen(el){ return el && (el.classList.contains('open') || el.style.display==='flex'); }
-  function hasOpenPopup(){
-    return POPUPS.some(p=>{ const el=document.getElementById(p.id); return isElOpen(el); });
-  }
-  function closeTopPopup(){
-    for(const p of POPUPS){
-      const el=document.getElementById(p.id);
-      if(isElOpen(el)){ p.close(); return true; }
-    }
-    return false;
-  }
-
-  // 히스토리 전략:
-  // - 초기 & 팝업 없을 때: [google_login, app_main] → 뒤로가기 = app_main 제거 = 앱 종료
-  // - 팝업 열릴 때: pushState(popup) → 뒤로가기 = popup 제거 = 팝업만 닫힘
-  // OAuth 콜백 후 google_login 히스토리 위에 app_main을 쌓아서 뒤로가기가 앱 메인에서만 종료
-  history.replaceState({type:'app'},'','');
-
-  // ── 팝업 스택 관리 ──
-  // 팝업이 열릴 때 _popupStack에 push, 닫힐 때 pop
-  // 뒤로가기 = 스택 맨 위 팝업의 close 함수 호출
-  window._popupStack = [];
+  // _popupMap: { 번호: {id, closeFn} }
+  // 팝업 열릴 때 pushPopup → 번호 부여 + sentinel push
+  // 팝업 닫힐 때 popPopup → Map 제거 (X버튼이면 sentinel도 back)
+  // 뒤로가기 → sentinel 제거 → popstate → 번호 큰 것부터 닫기
+  window._popupMap = {};
+  window._popupSeq = 0;
 
   window.pushPopup = function(id, closeFn){
-    window._popupStack.push({id, closeFn});
-    // 스택에 팝업이 있으면 뒤로가기를 잡아야 하므로 popup state 유지
-    if(history.state?.type !== 'popup'){
-      history.pushState({type:'popup'},'','');
-    }
+    window._popupSeq++;
+    window._popupMap[window._popupSeq] = {id, closeFn};
+    history.pushState({type:'sentinel'},'','');
   };
 
   window.popPopup = function(id){
-    // id로 스택에서 제거 (중간 제거도 가능)
-    window._popupStack = window._popupStack.filter(p=>p.id!==id);
-  };
-
-  window.addEventListener('popstate', ()=>{
-    if(window._popupStack.length > 0){
-      // 가장 마지막에 열린 팝업 닫기
-      const top = window._popupStack[window._popupStack.length - 1];
-      top.closeFn();
-      // 스택에 아직 팝업이 남아있으면 popup state 유지
-      if(window._popupStack.length > 0){
-        history.pushState({type:'popup'},'','');
+    for(const num in window._popupMap){
+      if(window._popupMap[num].id === id){
+        delete window._popupMap[num];
+        break;
       }
     }
-    // 스택이 비었으면 pushState 안 함 → 다음 뒤로가기 = 앱 종료
+    // sentinel은 popstate에서 자동 복원되므로 여기서 history 조작 불필요
+  };
+
+  // 앱 종료 확인
+  function showExitConfirm(){
+    let el = document.getElementById('appExitConfirm');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'appExitConfirm';
+      el.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;';
+      el.innerHTML = `<div style="background:var(--surface);border-radius:18px;padding:24px 22px;width:100%;max-width:320px;font-family:'Noto Sans KR',sans-serif;border:1px solid rgba(255,255,255,0.08);">
+        <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;">앱을 종료하시겠습니까?</div>
+        <div style="font-size:13px;color:var(--subtext);margin-bottom:20px;">지금까지의 내용은 자동 저장됩니다.</div>
+        <div style="display:flex;gap:8px;">
+          <button id="appExitCancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">취소</button>
+          <button id="appExitConfirmBtn" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--rose);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">종료</button>
+        </div>
+      </div>`;
+      document.body.appendChild(el);
+      document.getElementById('appExitCancel').onclick = ()=>{
+        el.style.display = 'none';
+        history.back(); // 취소용 sentinel 제거
+      };
+      document.getElementById('appExitConfirmBtn').onclick = ()=>{
+        el.style.display = 'none';
+        // 히스토리 전체 제거 → Google OAuth 페이지 포함 모두 소거 → 앱 종료
+        // iOS PWA는 앱 종료 API 없음. history 전체 소거 시도.
+        // Android: 앱 종료됨. iOS: 빈 화면 또는 무반응(정상)
+        try { history.go(-history.length); } catch(e) {}
+      };
+    }
+    el.style.display = 'flex';
+  }
+
+  // 초기: base + sentinel 1개 (메인화면 뒤로가기 감지용)
+  history.replaceState({type:'base'},'','');
+  history.pushState({type:'sentinel'},'','');
+
+  window.addEventListener('popstate', ()=>{
+    // 종료 확인창 떠있으면 → 뒤로가기 = 취소
+    const exitDlg = document.getElementById('appExitConfirm');
+    if(exitDlg && exitDlg.style.display === 'flex'){
+      exitDlg.style.display = 'none';
+      history.pushState({type:'sentinel'},'',''); // sentinel 복원 (취소했으므로)
+      return;
+    }
+    // 팝업 Map에서 번호 가장 큰 것 닫기
+    const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
+    if(nums.length > 0){
+      window._popupMap[nums[0]].closeFn();
+          history.pushState({type:'sentinel'},'',''); // 다음 뒤로가기를 위해 sentinel 복원
+    } else {
+      // 팝업 없음 → 종료 확인
+      history.pushState({type:'sentinel'},'',''); // 취소용 sentinel
+      showExitConfirm();
+    }
   });
 })();
 renderSlides();
