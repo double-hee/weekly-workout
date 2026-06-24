@@ -669,7 +669,9 @@
     const params = Object.fromEntries(hash.split('&').map(p=>p.split('=')));
     if(!params.access_token) return false;
     gdSaveToken(decodeURIComponent(params.access_token), parseInt(params.expires_in||3600));
-    history.replaceState(null,'', location.pathname);
+    // hash 제거 + Google OAuth 히스토리 스택 완전 초기화
+    // location.replace()로 현재 URL로 재이동 → 히스토리에 Google 페이지들이 남지 않음
+    location.replace(location.pathname);
     return true;
   }
 
@@ -947,23 +949,8 @@ ${jsonStr}
     }
     // OAuth 리디렉션 후 토큰 처리
     if(location.hash.includes('access_token')){
-      gdHandleCallback();
-      const btn=document.getElementById('gdLoginBtn');
-      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      document.getElementById('gdOverlay').classList.remove('open');
-      // 로그인 전(토큰 없던 상태)에 만든 로컬 수정사항이 있을 수 있으므로
-      // 먼저 업로드(Drive와 병합)한 뒤에 다운로드해야 데이터 유실이 없음
-      gdUpload().then(()=>gdSyncDown(true)).then(()=>{
-        // 온보딩 중 로그인했으면 루틴 단계로 이어가기
-        if(localStorage.getItem('onboard_pending')){
-          localStorage.removeItem('onboard_pending');
-          onbMode='drive';
-          startOnboarding();
-          setTimeout(()=>onbGoTo(3), 100); // 루틴 설정 단계로
-        } else {
-          checkFirstRun();
-        }
-      });
+      gdHandleCallback(); // 토큰 저장 + location.replace() 실행 → 페이지 새로고침
+      // location.replace() 이후 코드는 실행되지 않음
       return;
     }
     // 저장된 토큰으로 복원
@@ -978,7 +965,18 @@ ${jsonStr}
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
       const isFirstOpen = !sessionStorage.getItem('gd_session');
       sessionStorage.setItem('gd_session', '1');
-      if(isFirstOpen) gdSyncDown(true).then(()=>checkFirstRun());
+      if(isFirstOpen){
+        gdUpload().then(()=>gdSyncDown(true)).then(()=>{
+          if(localStorage.getItem('onboard_pending')){
+            localStorage.removeItem('onboard_pending');
+            onbMode='drive';
+            startOnboarding();
+            setTimeout(()=>onbGoTo(3), 100);
+          } else {
+            checkFirstRun();
+          }
+        });
+      }
       return;
     }
     // 토큰 복원 실패 — Drive 모드인데 로그인 안 돼있으면 로그인 팝업 표시
@@ -1929,7 +1927,7 @@ function openModal(dayIndex,dk,dateLabel,initialType=null,offset=null){
   });
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow='hidden';
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('modalOverlay', ()=>closeModal());
 }
 
 // localStorage에 저장된 extra 타입 가져오기 (planTypes에 없는 것)
@@ -2484,6 +2482,7 @@ function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow='';
   ctx={};
+  if(window.popPopup) window.popPopup('modalOverlay');
   // 대회일로 이동 후 모달 닫히면 대회일정 다시 열기
   if(window._reopenRaceAfterModal){
     window._reopenRaceAfterModal = false;
@@ -2829,12 +2828,13 @@ function openAddonPace(){
   addonDropdownOpen = false;
   applyAddonDropdownState();
   document.getElementById('paceOverlay').classList.add('open');
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('paceOverlay', ()=>closeAddonPace());
   renderPaceTabs();
   renderPaceBody();
 }
 function closeAddonPace(){
   document.getElementById('paceOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('paceOverlay');
 }
 function renderPaceTabs(){
   document.querySelectorAll('.pace-tab').forEach(btn=>{
@@ -3175,11 +3175,12 @@ let raceSelectedYear=(()=>{
 function openAddonRace(){
   addonDropdownOpen=false; applyAddonDropdownState();
   document.getElementById('raceOverlay').classList.add('open');
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('raceOverlay', ()=>closeAddonRace());
   renderRaceBody();
 }
 function closeAddonRace(){
   document.getElementById('raceOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('raceOverlay');
 }
 
 function renderRaceBody(){
@@ -3385,7 +3386,7 @@ function openRaceActionSheet(race){
       </div>
     </div>`;
   el.style.display = 'flex';
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('raceActionSheet', ()=>closeRaceActionSheet());
   el.onclick = e=>{ if(e.target===el) closeRaceActionSheet(); };
 
   document.getElementById('raceActionCancel').onclick = ()=>closeRaceActionSheet();
@@ -3399,21 +3400,24 @@ function openRaceActionSheet(race){
     closeRaceActionSheet();
     closeAddonRace();
     window._reopenRaceAfterModal = true;
-    // 대회일정이 쌓은 popup 스택을 base로 내려서
-    // openModal의 pushState가 [base, popup]을 만들도록 함
     const d = new Date(race.date);
     curWeek = getWeekStart(d);
     renderSlides();
     setTimeout(()=>{
       const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const card=document.querySelector(`[data-datekey="${dk}"]`);
-      if(card) card.click();
-    }, 150);
+      if(!card) return;
+      const dayIndex = parseInt(card.dataset.dayindex);
+      const dateLabel = card.dataset.date;
+      const offset = card.dataset.offset;
+      openModal(dayIndex, dk, dateLabel, race.sport, offset);
+    }, 200);
   };
 }
 function closeRaceActionSheet(){
   const el = document.getElementById('raceActionSheet');
   if(el) el.style.display = 'none';
+  if(window.popPopup) window.popPopup('raceActionSheet');
 }
 
 function openRaceForm(race, refreshModalAfterSave=false, _originalRace=null){
@@ -3542,10 +3546,12 @@ function openRaceForm(race, refreshModalAfterSave=false, _originalRace=null){
   };
 
   document.getElementById('raceFormOverlay').classList.add('open');
+  if(window.pushPopup) window.pushPopup('raceFormOverlay', ()=>closeRaceForm());
 }
 
 function closeRaceForm(){
   document.getElementById('raceFormOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('raceFormOverlay');
 }
 
 // 저장하기 (HTML 다운로드)
@@ -3732,7 +3738,7 @@ function openRaceInfoFromModal(raceId){
       </div>
     </div>`;
   el.style.display='flex';
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('raceInfoOverlay', ()=>closeRaceInfoFromModal());
   el.onclick=e=>{ if(e.target===el) closeRaceInfoFromModal(); };
 
   // 수정 버튼: 저장 후 카드+모달 새로고침
@@ -3741,12 +3747,13 @@ function openRaceInfoFromModal(raceId){
     closeRaceInfoFromModal();
     const r = raceLoad().find(r=>r.id===raceId);
     if(!r) return;
-    openRaceForm(r, true); // true = 저장 후 모달 새로고침 플래그
+    openRaceForm(r, true);
   };
 }
 function closeRaceInfoFromModal(){
   const el=document.getElementById('raceInfoOverlay');
   if(el) el.style.display='none';
+  if(window.popPopup) window.popPopup('raceInfoOverlay');
 }
 
 
@@ -3977,7 +3984,7 @@ function openSettings(){
   injectWD(editRoutine);
 
   document.getElementById('settingsOverlay').classList.add('open');
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('settingsOverlay', ()=>closeSettings());
   document.body.style.overflow='hidden';
 
   // 최초 실행(기본값 없음) 시 버튼 조건부 표시
@@ -4058,6 +4065,7 @@ function openSettings(){
   renderSettingsPanel();
 }
 function closeSettings(){
+  if(window.popPopup) window.popPopup('settingsOverlay');
   document.getElementById('settingsOverlay').classList.remove('open');
   document.body.style.overflow='';
   editRoutine=null;
@@ -4441,7 +4449,7 @@ document.addEventListener('keydown',e=>{
 /* ══ SEARCH ══ */
 function openSearch(){
   document.getElementById('searchOverlay').classList.add('open');
-  if(typeof pushPopupState==='function') pushPopupState();
+  if(window.pushPopup) window.pushPopup('searchOverlay', ()=>closeSearch());
   document.body.style.overflow='hidden';
   document.getElementById('searchInput').focus();
   document.getElementById('searchInput').value='';
@@ -4450,6 +4458,7 @@ function openSearch(){
   document.getElementById('searchClear').classList.remove('visible');
 }
 function closeSearch(){
+  if(window.popPopup) window.popPopup('searchOverlay');
   document.getElementById('searchOverlay').classList.remove('open');
   document.body.style.overflow='';
 }
@@ -4911,23 +4920,35 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   // OAuth 콜백 후 google_login 히스토리 위에 app_main을 쌓아서 뒤로가기가 앱 메인에서만 종료
   history.replaceState({type:'app'},'','');
 
-  function pushPopupState(){ history.pushState({type:'popup'},'',''); }
-  function hasPopupState(){ return history.state && history.state.type==='popup'; }
+  // ── 팝업 스택 관리 ──
+  // 팝업이 열릴 때 _popupStack에 push, 닫힐 때 pop
+  // 뒤로가기 = 스택 맨 위 팝업의 close 함수 호출
+  window._popupStack = [];
 
-  window.addEventListener('popstate', e=>{
-    if(e.state && e.state.type==='popup'){
-      // popup state 제거됨 = 팝업 뒤로가기
-      const rio=document.getElementById('raceInfoOverlay');
-      if(rio && rio.style.display==='flex'){
-        closeRaceInfoFromModal();
-        return;
-      }
-      if(hasOpenPopup()){
-        closeTopPopup();
-      }
-      // 팝업 닫혔으면 app state로 돌아옴 — 다음 뒤로가기는 앱 종료
+  window.pushPopup = function(id, closeFn){
+    window._popupStack.push({id, closeFn});
+    // 스택에 팝업이 있으면 뒤로가기를 잡아야 하므로 popup state 유지
+    if(history.state?.type !== 'popup'){
+      history.pushState({type:'popup'},'','');
     }
-    // app state = 메인화면 → 뒤로가기 허용 (앱 종료)
+  };
+
+  window.popPopup = function(id){
+    // id로 스택에서 제거 (중간 제거도 가능)
+    window._popupStack = window._popupStack.filter(p=>p.id!==id);
+  };
+
+  window.addEventListener('popstate', ()=>{
+    if(window._popupStack.length > 0){
+      // 가장 마지막에 열린 팝업 닫기
+      const top = window._popupStack[window._popupStack.length - 1];
+      top.closeFn();
+      // 스택에 아직 팝업이 남아있으면 popup state 유지
+      if(window._popupStack.length > 0){
+        history.pushState({type:'popup'},'','');
+      }
+    }
+    // 스택이 비었으면 pushState 안 함 → 다음 뒤로가기 = 앱 종료
   });
 })();
 renderSlides();
