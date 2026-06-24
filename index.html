@@ -4922,14 +4922,13 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
       document.body.appendChild(el);
       document.getElementById('appExitCancel').onclick = ()=>{
         el.style.display = 'none';
-        history.back(); // 취소용 sentinel 제거
+        // sentinel은 그대로 유지 (history 조작 없음)
       };
       document.getElementById('appExitConfirmBtn').onclick = ()=>{
         el.style.display = 'none';
-        // 히스토리 전체 제거 → Google OAuth 페이지 포함 모두 소거 → 앱 종료
-        // iOS PWA는 앱 종료 API 없음. history 전체 소거 시도.
-        // Android: 앱 종료됨. iOS: 빈 화면 또는 무반응(정상)
-        try { history.go(-history.length); } catch(e) {}
+        window._isExiting = true;
+        // 히스토리를 한 단계씩 뒤로가면서 앱 종료 시도
+        history.back();
       };
     }
     el.style.display = 'flex';
@@ -4940,11 +4939,16 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   history.pushState({type:'sentinel'},'','');
 
   window.addEventListener('popstate', ()=>{
-    // 종료 확인창 떠있으면 → 뒤로가기 = 취소
+    // 종료 진행 중 → 계속 뒤로가기
+    if(window._isExiting){
+      history.back();
+      return;
+    }
+    // 종료 확인창 떠있으면 → 뒤로가기 = 취소 (sentinel 복원)
     const exitDlg = document.getElementById('appExitConfirm');
     if(exitDlg && exitDlg.style.display === 'flex'){
       exitDlg.style.display = 'none';
-      history.pushState({type:'sentinel'},'',''); // sentinel 복원 (취소했으므로)
+      history.pushState({type:'sentinel'},'',''); // sentinel 복원
       return;
     }
     // 팝업 Map에서 번호 가장 큰 것 닫기
@@ -4954,7 +4958,6 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
           history.pushState({type:'sentinel'},'',''); // 다음 뒤로가기를 위해 sentinel 복원
     } else {
       // 팝업 없음 → 종료 확인
-      history.pushState({type:'sentinel'},'',''); // 취소용 sentinel
       showExitConfirm();
     }
   });
