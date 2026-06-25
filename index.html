@@ -4882,16 +4882,12 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
 /* ══ 뒤로가기 버튼 → 팝업 번호 관리 ══ */
 (function(){
   // _popupMap: { 번호: {id, closeFn} }
-  // 팝업 열릴 때 pushPopup → 번호 부여 + sentinel push
-  // 팝업 닫힐 때 popPopup → Map 제거 (X버튼이면 sentinel도 back)
-  // 뒤로가기 → sentinel 제거 → popstate → 번호 큰 것부터 닫기
   window._popupMap = {};
   window._popupSeq = 0;
 
   window.pushPopup = function(id, closeFn){
     window._popupSeq++;
     window._popupMap[window._popupSeq] = {id, closeFn};
-    history.pushState({type:'sentinel'},'','');
   };
 
   window.popPopup = function(id){
@@ -4901,10 +4897,9 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
         break;
       }
     }
-    // sentinel은 popstate에서 자동 복원되므로 여기서 history 조작 불필요
   };
 
-  // 앱 종료 확인
+  // 앱 종료 확인 다이얼로그
   function showExitConfirm(){
     let el = document.getElementById('appExitConfirm');
     if(!el){
@@ -4922,45 +4917,43 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
       document.body.appendChild(el);
       document.getElementById('appExitCancel').onclick = ()=>{
         el.style.display = 'none';
-        // sentinel은 그대로 유지 (history 조작 없음)
+        // sentinel 복원
+        history.pushState({type:'sentinel'},'','');
       };
       document.getElementById('appExitConfirmBtn').onclick = ()=>{
         el.style.display = 'none';
+        // Android PWA 종료: sentinel 없이 history.back() → 히스토리 바닥 → 앱 종료
+        // popstate가 발생해도 _isExiting으로 무시
         window._isExiting = true;
-        // 히스토리를 한 단계씩 뒤로가면서 앱 종료 시도
         history.back();
       };
     }
     el.style.display = 'flex';
   }
 
-  // 초기: base + sentinel 1개 (메인화면 뒤로가기 감지용)
+  // 초기: base + sentinel
   history.replaceState({type:'base'},'','');
   history.pushState({type:'sentinel'},'','');
 
   window.addEventListener('popstate', ()=>{
-    // 종료 진행 중 → 계속 뒤로가기
+    // 종료 진행 중: popstate 무시하고 계속 back
     if(window._isExiting){
-      history.back();
+      if(history.length > 1){
+        history.back();
+      }
       return;
     }
-    // 종료 확인창 떠있으면 → 뒤로가기 = 취소 (sentinel 복원)
-    const exitDlg = document.getElementById('appExitConfirm');
-    if(exitDlg && exitDlg.style.display === 'flex'){
-      exitDlg.style.display = 'none';
-      history.pushState({type:'sentinel'},'',''); // sentinel 복원
-      return;
-    }
-    // 팝업 Map에서 번호 가장 큰 것 닫기
+
+    // 팝업 맵에서 번호 가장 큰 것 닫기
     const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
     if(nums.length > 0){
       window._popupMap[nums[0]].closeFn();
-      history.pushState({type:'sentinel'},'',''); // 다음 뒤로가기를 위해 sentinel 복원
     } else {
-      // 팝업 없음 → 종료 확인 (sentinel 복원해서 취소 후 다시 뒤로가기 가능)
-      history.pushState({type:'sentinel'},'','');
+      // 팝업 없음 → 종료 확인
       showExitConfirm();
     }
+    // 항상 sentinel 복원 (취소든 팝업 닫기든 다음 뒤로가기를 위해)
+    history.pushState({type:'sentinel'},'','');
   });
 })();
 renderSlides();
