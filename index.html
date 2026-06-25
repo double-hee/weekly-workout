@@ -4955,9 +4955,10 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
     if(nums.length > 0){
       window._popupMap[nums[0]].closeFn();
-          history.pushState({type:'sentinel'},'',''); // 다음 뒤로가기를 위해 sentinel 복원
+      history.pushState({type:'sentinel'},'',''); // 다음 뒤로가기를 위해 sentinel 복원
     } else {
-      // 팝업 없음 → 종료 확인
+      // 팝업 없음 → 종료 확인 (sentinel 복원해서 취소 후 다시 뒤로가기 가능)
+      history.pushState({type:'sentinel'},'','');
       showExitConfirm();
     }
   });
