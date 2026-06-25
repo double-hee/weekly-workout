@@ -4904,35 +4904,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     }
   };
 
-  // 앱 종료 확인 다이얼로그
-  function showExitConfirm(){
-    let el = document.getElementById('appExitConfirm');
-    if(!el){
-      el = document.createElement('div');
-      el.id = 'appExitConfirm';
-      el.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;';
-      el.innerHTML = `<div style="background:var(--surface);border-radius:18px;padding:24px 22px;width:100%;max-width:320px;font-family:'Noto Sans KR',sans-serif;border:1px solid rgba(255,255,255,0.08);">
-        <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;">앱을 종료하시겠습니까?</div>
-        <div style="font-size:13px;color:var(--subtext);margin-bottom:20px;">지금까지의 내용은 자동 저장됩니다.</div>
-        <div style="display:flex;gap:8px;">
-          <button id="appExitCancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">취소</button>
-          <button id="appExitConfirmBtn" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--rose);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">종료</button>
-        </div>
-      </div>`;
-      document.body.appendChild(el);
-      document.getElementById('appExitCancel').onclick = ()=>{
-        el.style.display = 'none';
-        // sentinel은 popstate에서 이미 복원됨
-      };
-      document.getElementById('appExitConfirmBtn').onclick = ()=>{
-        el.style.display = 'none';
-        // location.replace로 Google OAuth 히스토리 없는 빈 상태로 이동
-        // → Android PWA에서 앱이 홈으로 돌아가거나 종료됨
-        location.replace('about:blank');
-      };
-    }
-    el.style.display = 'flex';
-  }
+
 
   // 초기: sentinel 1개 설정
   // replaceState로 현재 항목을 base로 고정 후 sentinel push
@@ -4940,23 +4912,14 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   history.pushState({type:'sentinel'},'','');
 
   window.addEventListener('popstate', ()=>{
-    // 종료 확인창이 떠있으면 → 뒤로가기 = 취소
-    const exitDlg = document.getElementById('appExitConfirm');
-    if(exitDlg && exitDlg.style.display === 'flex'){
-      exitDlg.style.display = 'none';
-      history.pushState({type:'sentinel'},'','');
-      return;
-    }
     // Map에서 번호 가장 큰 팝업 닫기
     const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
     if(nums.length > 0){
       const top = window._popupMap[nums[0]];
       delete window._popupMap[nums[0]];
       top.closeFn();
-    } else {
-      // 팝업 없음 → 종료 확인
-      showExitConfirm();
     }
+    // 팝업 없음(메인화면) → 뒤로가기 무시 (PWA는 홈버튼/스와이프로 종료)
     // 항상 sentinel 복원
     history.pushState({type:'sentinel'},'','');
   });
