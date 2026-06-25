@@ -1496,6 +1496,10 @@ function getCurrentRoutineAndAnchor(){
 
 function saveRoutine(r){
   save(ROUTINE_KEY,r);
+  // 최초 루틴 저장 시 기본값도 함께 저장 (기본값이 없을 때만)
+  if(!localStorage.getItem(USER_DEFAULT_KEY)){
+    saveUserDefault(r);
+  }
   // savedAt = 오늘 자정, anchor = 이번 주 시작 → 오늘 기준 이번 주가 편집한 루틴의 1주차
   const today=new Date(); today.setHours(0,0,0,0);
   const anchor=getWeekStart(new Date()).getTime(); // 이번 주 시작 = 새 루틴의 1주차
