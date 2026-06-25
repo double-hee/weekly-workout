@@ -2225,7 +2225,8 @@ function bindPaneEvents(){
     el.onclick=e=>{
       e.stopPropagation();
       const raceId=el.dataset.raceid;
-      openRaceInfoFromModal(raceId);
+      const r=raceLoad().find(r=>r.id===raceId);
+      if(r) openRaceForm(r, true);
     };
   });
 
@@ -3265,7 +3266,10 @@ function renderRaceBody(){
             : '';
           html+=`
             <div class="race-card" data-rc="${r.id}">
-              <div class="race-card-icon" style="background:rgba(${t.rgb},0.12);border:1px solid rgba(${t.rgb},0.25);">${t.icon}</div>
+              <button data-rcdate="${r.date}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:52px;width:52px;flex-shrink:0;background:rgba(${t.rgb},0.12);border:1px solid rgba(${t.rgb},0.25);border-radius:10px;padding:8px 4px;cursor:pointer;">
+                <span style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;">${raceFmtShort(r.date)}</span>
+                <span style="font-size:22px;line-height:1;">${t.icon}</span>
+              </button>
               <div class="race-card-info">
                 <div style="display:flex;align-items:center;gap:6px;">
                   <div class="race-card-name">${r.name}</div>${badge}
@@ -3279,7 +3283,6 @@ function renderRaceBody(){
                   })()}
                 </div>
                 <div class="race-card-meta">
-                  <span class="race-card-date">${raceFmtShort(r.date)}</span>
                   ${r.event?`<span class="race-card-event" style="color:${t.color};background:rgba(${t.rgb},0.12);">${r.event}</span>`:''}
                 </div>
                 ${r.memo?`<div class="race-card-memo">${r.memo}</div>`:''}
@@ -3342,9 +3345,27 @@ function renderRaceBody(){
   body.querySelectorAll('[data-rc]').forEach(card=>{
     card.onclick=e=>{
       if(e.target.closest('[data-rdel]')) return;
+      // 왼쪽 날짜+아이콘 버튼 클릭 → 해당 날짜로 이동
+      const dateBtn=e.target.closest('[data-rcdate]');
+      if(dateBtn){
+        e.stopPropagation();
+        const id=card.dataset.rc;
+        const race=raceLoad().find(r=>r.id===id);
+        if(!race) return;
+        closeAddonRace();
+        window._reopenRaceAfterModal=true;
+        const d=new Date(race.date);
+        curWeek=getWeekStart(d);
+        renderSlides();
+        const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const mapCard=document.querySelector(`[data-datekey="${dk}"]`);
+        if(mapCard) openModal(parseInt(mapCard.dataset.dayindex),dk,mapCard.dataset.date,race.sport,mapCard.dataset.offset);
+        return;
+      }
+      // 카드 나머지 영역 클릭 → 수정 폼
       const id=card.dataset.rc;
       const race=raceLoad().find(r=>r.id===id);
-      if(race) openRaceActionSheet(race);
+      if(race) openRaceForm(race);
     };
   });
   body.querySelectorAll('[data-rdel]').forEach(btn=>{
@@ -3372,14 +3393,30 @@ function openRaceActionSheet(race){
     document.body.appendChild(el);
   }
   const t = raceGetSports(race.sport);
+  const p = raceGetPart(race.participate);
+  const today=new Date(); today.setHours(0,0,0,0);
+  const raceDay=new Date(race.date); raceDay.setHours(0,0,0,0);
+  const diff=Math.round((raceDay-today)/(1000*60*60*24));
+  const ddayHtml = diff===0
+    ? `<span style="font-size:11px;font-weight:800;color:#fff;background:var(--rose);border-radius:6px;padding:2px 7px;flex-shrink:0;">D-Day</span>`
+    : diff>0
+    ? `<span style="font-size:11px;font-weight:700;color:var(--lime);background:rgba(163,230,53,0.15);border:1px solid rgba(163,230,53,0.3);border-radius:6px;padding:2px 7px;flex-shrink:0;">D-${diff}</span>`
+    : `<span style="font-size:11px;font-weight:700;color:var(--subtext);background:rgba(255,255,255,0.07);border-radius:6px;padding:2px 7px;flex-shrink:0;">D+${Math.abs(diff)}</span>`;
+
   el.innerHTML = `
     <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;font-family:'Noto Sans KR',sans-serif;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-        <div style="font-size:22px;">${t.icon}</div>
-        <div>
-          <div style="font-size:15px;font-weight:800;color:#fff;">${esc(race.name)}</div>
-          <div style="font-size:12px;color:var(--subtext);margin-top:2px;">${raceFmtFull(race.date)}${race.event?' · '+esc(race.event):''}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(${t.rgb},0.15);border:1px solid rgba(${t.rgb},0.3);display:flex;align-items:center;justify-content:center;font-size:22px;">${t.icon}</div>
+          <div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="font-size:15px;font-weight:800;color:#fff;">${esc(race.name)}</div>
+              ${ddayHtml}
+            </div>
+            <div style="font-size:12px;color:var(--subtext);margin-top:3px;">${raceFmtFull(race.date)}${race.event?' · <span style="color:'+t.color+'">'+esc(race.event)+'</span>':''}</div>
+          </div>
         </div>
+        <button id="raceActionClose" style="background:none;border:none;color:var(--subtext);cursor:pointer;font-size:20px;padding:4px;flex-shrink:0;">✕</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <button id="raceActionGoto" style="width:100%;padding:14px;border-radius:12px;background:rgba(163,230,53,0.1);border:1px solid rgba(163,230,53,0.25);color:var(--lime);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
@@ -3388,16 +3425,13 @@ function openRaceActionSheet(race){
         <button id="raceActionEdit" style="width:100%;padding:14px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
           ✏️ 수정하기
         </button>
-        <button id="raceActionCancel" style="width:100%;padding:12px;border-radius:12px;background:none;border:none;color:var(--subtext);font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-          취소
-        </button>
       </div>
     </div>`;
   el.style.display = 'flex';
   if(window.pushPopup) window.pushPopup('raceActionSheet', ()=>closeRaceActionSheet());
   el.onclick = e=>{ if(e.target===el) closeRaceActionSheet(); };
 
-  document.getElementById('raceActionCancel').onclick = ()=>closeRaceActionSheet();
+  document.getElementById('raceActionClose').onclick = ()=>closeRaceActionSheet();
 
   document.getElementById('raceActionEdit').onclick = ()=>{
     closeRaceActionSheet();
@@ -3407,7 +3441,7 @@ function openRaceActionSheet(race){
   document.getElementById('raceActionGoto').onclick = ()=>{
     closeRaceActionSheet();
     closeAddonRace();
-      window._reopenRaceAfterModal = true;
+    window._reopenRaceAfterModal = true;
     const d = new Date(race.date);
     curWeek = getWeekStart(d);
     renderSlides();
