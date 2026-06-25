@@ -4882,12 +4882,17 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
 /* ══ 뒤로가기 버튼 → 팝업 번호 관리 ══ */
 (function(){
   // _popupMap: { 번호: {id, closeFn} }
+  // 규칙: 팝업 열릴 때 pushPopup → Map 등록 + sentinel push
+  //       팝업 닫힐 때 popPopup → Map 제거 (sentinel은 popstate가 소비)
+  //       뒤로가기 → sentinel 소비 → popstate → Map 번호 큰 것부터 closeFn()
+  //       모든 경우 sentinel 복원 → 다음 뒤로가기 항상 감지 가능
   window._popupMap = {};
   window._popupSeq = 0;
 
   window.pushPopup = function(id, closeFn){
     window._popupSeq++;
     window._popupMap[window._popupSeq] = {id, closeFn};
+    history.pushState({type:'sentinel'},'',''); // 팝업 1개 = sentinel 1개
   };
 
   window.popPopup = function(id){
@@ -4897,6 +4902,10 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
         break;
       }
     }
+    // X버튼으로 닫을 때: sentinel도 제거해야 팝업 수와 sentinel 수가 맞음
+    // history.back()은 popstate를 발생시키므로 _xClosing 플래그로 popstate에서 무시
+    window._xClosing = true;
+    history.back();
   };
 
   // 앱 종료 확인 다이얼로그
@@ -4917,13 +4926,16 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
       document.body.appendChild(el);
       document.getElementById('appExitCancel').onclick = ()=>{
         el.style.display = 'none';
-        // sentinel 복원
-        history.pushState({type:'sentinel'},'','');
+        // sentinel은 이미 popstate에서 복원됨. 추가 조작 없음.
       };
       document.getElementById('appExitConfirmBtn').onclick = ()=>{
         el.style.display = 'none';
-        // Android PWA 종료: sentinel 없이 history.back() → 히스토리 바닥 → 앱 종료
-        // popstate가 발생해도 _isExiting으로 무시
+        // PWA 종료 시도
+        // 1) window.close() - 일부 PWA에서 동작
+        // 2) 안 되면 about:blank 이동 (화면을 빈 페이지로)
+        try { window.close(); } catch(e){}
+        // window.close()가 안 먹히는 환경(Android PWA)에서는
+        // history를 모두 소진해서 앱이 자연스럽게 종료되도록
         window._isExiting = true;
         history.back();
       };
@@ -4931,28 +4943,35 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     el.style.display = 'flex';
   }
 
-  // 초기: base + sentinel
+  // 초기: base + sentinel 1개
   history.replaceState({type:'base'},'','');
   history.pushState({type:'sentinel'},'','');
 
   window.addEventListener('popstate', ()=>{
-    // 종료 진행 중: popstate 무시하고 계속 back
-    if(window._isExiting){
-      if(history.length > 1){
-        history.back();
-      }
+    // X버튼으로 팝업 닫을 때 발생한 back → 무시
+    if(window._xClosing){
+      window._xClosing = false;
       return;
     }
-
-    // 팝업 맵에서 번호 가장 큰 것 닫기
+    // 종료 진행 중 → 계속 뒤로가기
+    if(window._isExiting){
+      history.back();
+      return;
+    }
+    // 팝업 Map에서 번호 가장 큰 것 닫기 (뒤로가기)
     const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
     if(nums.length > 0){
-      window._popupMap[nums[0]].closeFn();
+      // 뒤로가기로 닫을 때: sentinel은 이미 소비됨, popPopup의 history.back()은 안 되도록
+      const closeFn = window._popupMap[nums[0]].closeFn;
+      delete window._popupMap[nums[0]]; // Map에서 먼저 제거 (popPopup의 back 방지)
+      window._xClosing = true; // closeFn 내부 popPopup → history.back() 무시
+      closeFn();
+      window._xClosing = false;
     } else {
       // 팝업 없음 → 종료 확인
       showExitConfirm();
     }
-    // 항상 sentinel 복원 (취소든 팝업 닫기든 다음 뒤로가기를 위해)
+    // 항상 sentinel 복원
     history.pushState({type:'sentinel'},'','');
   });
 })();
