@@ -4881,18 +4881,18 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
 
 /* ══ 뒤로가기 버튼 → 팝업 번호 관리 ══ */
 (function(){
-  // _popupMap: { 번호: {id, closeFn} }
-  // 규칙: 팝업 열릴 때 pushPopup → Map 등록 + sentinel push
-  //       팝업 닫힐 때 popPopup → Map 제거 (sentinel은 popstate가 소비)
-  //       뒤로가기 → sentinel 소비 → popstate → Map 번호 큰 것부터 closeFn()
-  //       모든 경우 sentinel 복원 → 다음 뒤로가기 항상 감지 가능
+  // 설계 원칙:
+  // - pushPopup: Map 등록만 (history 조작 없음)
+  // - popPopup: Map 제거만 (history 조작 없음)
+  // - 뒤로가기 감지: 초기 sentinel 1개. popstate 발생 = 뒤로가기.
+  //   처리 후 항상 sentinel 복원 → 계속 감지 가능
+  // - history.back() 비동기 호출 일절 없음 → 타이밍 버그 제로
   window._popupMap = {};
   window._popupSeq = 0;
 
   window.pushPopup = function(id, closeFn){
     window._popupSeq++;
     window._popupMap[window._popupSeq] = {id, closeFn};
-    history.pushState({type:'sentinel'},'',''); // 팝업 1개 = sentinel 1개
   };
 
   window.popPopup = function(id){
@@ -4902,10 +4902,6 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
         break;
       }
     }
-    // X버튼으로 닫을 때: sentinel도 제거해야 팝업 수와 sentinel 수가 맞음
-    // history.back()은 popstate를 발생시키므로 _xClosing 플래그로 popstate에서 무시
-    window._xClosing = true;
-    history.back();
   };
 
   // 앱 종료 확인 다이얼로그
@@ -4926,47 +4922,37 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
       document.body.appendChild(el);
       document.getElementById('appExitCancel').onclick = ()=>{
         el.style.display = 'none';
-        // sentinel은 이미 popstate에서 복원됨. 추가 조작 없음.
+        // sentinel은 popstate에서 이미 복원됨
       };
       document.getElementById('appExitConfirmBtn').onclick = ()=>{
         el.style.display = 'none';
-        // PWA 종료 시도
-        // 1) window.close() - 일부 PWA에서 동작
-        // 2) 안 되면 about:blank 이동 (화면을 빈 페이지로)
-        try { window.close(); } catch(e){}
-        // window.close()가 안 먹히는 환경(Android PWA)에서는
-        // history를 모두 소진해서 앱이 자연스럽게 종료되도록
-        window._isExiting = true;
-        history.back();
+        // location.replace로 Google OAuth 히스토리 없는 빈 상태로 이동
+        // → Android PWA에서 앱이 홈으로 돌아가거나 종료됨
+        location.replace('about:blank');
       };
     }
     el.style.display = 'flex';
   }
 
-  // 초기: base + sentinel 1개
+  // 초기: sentinel 1개 설정
+  // replaceState로 현재 항목을 base로 고정 후 sentinel push
   history.replaceState({type:'base'},'','');
   history.pushState({type:'sentinel'},'','');
 
   window.addEventListener('popstate', ()=>{
-    // X버튼으로 팝업 닫을 때 발생한 back → 무시
-    if(window._xClosing){
-      window._xClosing = false;
+    // 종료 확인창이 떠있으면 → 뒤로가기 = 취소
+    const exitDlg = document.getElementById('appExitConfirm');
+    if(exitDlg && exitDlg.style.display === 'flex'){
+      exitDlg.style.display = 'none';
+      history.pushState({type:'sentinel'},'','');
       return;
     }
-    // 종료 진행 중 → 계속 뒤로가기
-    if(window._isExiting){
-      history.back();
-      return;
-    }
-    // 팝업 Map에서 번호 가장 큰 것 닫기 (뒤로가기)
+    // Map에서 번호 가장 큰 팝업 닫기
     const nums = Object.keys(window._popupMap).map(Number).sort((a,b)=>b-a);
     if(nums.length > 0){
-      // 뒤로가기로 닫을 때: sentinel은 이미 소비됨, popPopup의 history.back()은 안 되도록
-      const closeFn = window._popupMap[nums[0]].closeFn;
-      delete window._popupMap[nums[0]]; // Map에서 먼저 제거 (popPopup의 back 방지)
-      window._xClosing = true; // closeFn 내부 popPopup → history.back() 무시
-      closeFn();
-      window._xClosing = false;
+      const top = window._popupMap[nums[0]];
+      delete window._popupMap[nums[0]];
+      top.closeFn();
     } else {
       // 팝업 없음 → 종료 확인
       showExitConfirm();
