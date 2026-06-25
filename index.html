@@ -3537,10 +3537,30 @@ function openRaceForm(race, refreshModalAfterSave=false, _originalRace=null){
 
 
   sheet.querySelectorAll('[data-sp]').forEach(btn=>{
-    btn.onclick=()=>{ cur.sport=btn.dataset.sp; openRaceForm({...cur, id:race?.id}, refreshModalAfterSave, originalRace); };
+    btn.onclick=()=>{
+      cur.sport=btn.dataset.sp;
+      // 버튼 스타일만 업데이트
+      sheet.querySelectorAll('[data-sp]').forEach(b=>{
+        const tt=RACE_SPORT_TYPES.find(t=>t.id===b.dataset.sp);
+        const active=b.dataset.sp===cur.sport;
+        b.style.background=active?`rgba(${tt.rgb},0.18)`:'rgba(255,255,255,0.05)';
+        b.style.border=`1px solid ${active?tt.color:'rgba(255,255,255,0.1)'}`;
+        b.style.color=active?tt.color:'var(--subtext)';
+      });
+    };
   });
   sheet.querySelectorAll('[data-pp]').forEach(btn=>{
-    btn.onclick=()=>{ cur.participate=btn.dataset.pp; openRaceForm({...cur, id:race?.id}, refreshModalAfterSave, originalRace); };
+    btn.onclick=()=>{
+      cur.participate=btn.dataset.pp;
+      // 버튼 스타일만 업데이트
+      sheet.querySelectorAll('[data-pp]').forEach(b=>{
+        const pp=RACE_PARTICIPATE.find(p=>p.id===b.dataset.pp);
+        const active=b.dataset.pp===cur.participate;
+        b.style.background=active?`rgba(${pp.rgb},0.18)`:'rgba(255,255,255,0.04)';
+        b.style.border=`1px solid ${active?pp.color:'rgba(255,255,255,0.1)'}`;
+        b.style.color=active?pp.color:'var(--subtext)';
+      });
+    };
   });
 
   document.getElementById('rfSave').onclick=()=>{
