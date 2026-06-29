@@ -1083,7 +1083,27 @@ ${jsonStr}
       <div class="onb-skip" id="onbSkipBtn">건너뛰기</div>
     </div>
 
-    <!-- 4: 완료 -->
+    <!-- 4: Gemini API 키 -->
+    <div class="onb-slide">
+      <div class="onb-emoji">✦</div>
+      <div class="onb-title">AI 코칭 분석</div>
+      <div class="onb-desc">가민 스크린샷을 업로드하면<br>AI가 운동을 분석하고 코칭해드려요.<br><br>Gemini API 키를 입력하면 바로 사용할 수 있어요.<br>(나중에 설정에서도 입력 가능해요)</div>
+      <div style="width:100%;margin:16px 0 0;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;">
+          <input type="password" id="onbGeminiInput" placeholder="API 키 입력 (선택사항)" autocomplete="off"
+            style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;color:#fff;padding:12px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+          <button id="onbGeminiSaveBtn"
+            style="padding:12px 16px;border-radius:12px;border:none;background:rgba(163,230,53,0.2);color:var(--lime);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">저장</button>
+        </div>
+        <div id="onbGeminiStatus" style="font-size:12px;color:var(--subtext);text-align:left;padding:0 2px;min-height:18px;"></div>
+        <div style="font-size:11px;color:var(--muted);text-align:left;padding:0 2px;line-height:1.6;">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--sky);text-decoration:none;">aistudio.google.com</a>에서 무료로 발급하세요.
+        </div>
+      </div>
+      <button class="onb-btn" id="onbGeminiNextBtn" style="margin-top:16px;">다음</button>
+    </div>
+
+    <!-- 5: 완료 -->
     <div class="onb-slide">
       <div class="onb-emoji">🎉</div>
       <div class="onb-title">설정 완료!</div>
@@ -2132,7 +2152,7 @@ function buildPane(item){
   const noteTA=`<textarea class="note-ta" id="noteTa-${type}" placeholder="메모...">${esc(note)}</textarea>`;
 
   const photos=getPhotosCached(dk,type);
-  const MAX_PHOTOS=5;
+  const MAX_PHOTOS=10;
   const photoThumbsHTML=photos.map((src,i)=>`
     <div class="photo-thumb" id="photoThumb-${type}-${i}">
       <div class="photo-thumb-view" data-photoidx="${i}" data-phototype="${type}"></div>
@@ -2208,6 +2228,7 @@ function buildPane(item){
       ${photos.length>0?`
       <div class="photo-share-toolbar" id="photoShareToolbar-${type}">
         <button class="photo-share-start-btn" data-sharetype="${type}">↑ 공유</button>
+        <button class="photo-ai-btn" data-aitype="${type}" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ AI분석</button>
       </div>`:'' }
     </div>
     <div id="photoSelectBar-${type}" style="display:none;margin-bottom:8px;" class="photo-select-bar">
@@ -2268,6 +2289,23 @@ function bindPaneEvents(){
     btn.onclick=e=>{
       e.stopPropagation();
       enterSelectMode(btn.dataset.sharetype);
+    };
+  });
+
+  // AI 분석 버튼
+  document.querySelectorAll('.photo-ai-btn').forEach(btn=>{
+    btn.onclick=async e=>{
+      e.stopPropagation();
+      const type=btn.dataset.aitype;
+      const {dk}=ctx;
+      const photos=await getPhotos(dk,type);
+      if(!photos.length){alert('분석할 사진이 없어요. 먼저 사진을 추가해주세요.'); return;}
+      const apiKey=localStorage.getItem('garmin_analyzer_gemini_key');
+      if(!apiKey){
+        openGeminiKeyModal(()=>openGarminAIOverlay(photos));
+        return;
+      }
+      openGarminAIOverlay(photos);
     };
   });
 
@@ -2483,6 +2521,248 @@ async function refreshPane(type){
 document.getElementById('modalClose').onclick=closeModal;
 document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('modalOverlay'))closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePicker();closeModal();}});
+/* ══ Gemini API 키 입력 미니 모달 ══ */
+function openGeminiKeyModal(onSave){
+  let el=document.getElementById('geminiKeyModal');
+  if(!el){
+    el=document.createElement('div');
+    el.id='geminiKeyModal';
+    el.style.cssText='display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`
+    <div style="background:var(--surface);border-radius:18px;padding:24px 20px;width:100%;max-width:360px;font-family:'Noto Sans KR',sans-serif;border:1px solid rgba(255,255,255,0.08);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <span style="font-size:18px;color:var(--lime);font-weight:900;">✦</span>
+        <div style="font-size:15px;font-weight:800;color:#fff;">Gemini API 키 필요</div>
+      </div>
+      <div style="font-size:13px;color:var(--subtext);margin-bottom:14px;line-height:1.6;">
+        AI 분석 기능을 사용하려면 Gemini API 키가 필요해요.<br>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--sky);text-decoration:none;">aistudio.google.com</a>에서 무료 발급 후 입력해주세요.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="password" id="geminiKeyModalInput" placeholder="API 키 입력..." autocomplete="off"
+          style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;padding:10px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+        <button id="geminiKeyModalSave" style="padding:10px 14px;border-radius:10px;border:none;background:var(--lime);color:#0A130A;font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">저장</button>
+      </div>
+      <div id="geminiKeyModalStatus" style="font-size:12px;color:var(--subtext);min-height:16px;margin-bottom:14px;"></div>
+      <button id="geminiKeyModalClose" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">취소</button>
+    </div>`;
+  el.style.display='flex';
+  if(window.pushPopup) pushPopup('geminiKeyModal',()=>closeGeminiKeyModal());
+  el.onclick=e=>{if(e.target===el) closeGeminiKeyModal();};
+  document.getElementById('geminiKeyModalClose').onclick=closeGeminiKeyModal;
+  document.getElementById('geminiKeyModalSave').onclick=()=>{
+    const v=document.getElementById('geminiKeyModalInput').value.trim();
+    if(v.length<10){document.getElementById('geminiKeyModalStatus').textContent='키가 너무 짧아요.';return;}
+    localStorage.setItem('garmin_analyzer_gemini_key',v);
+    document.getElementById('geminiKeyModalStatus').innerHTML='<span style="color:var(--lime);">✓ 저장됐어요!</span>';
+    setTimeout(()=>{
+      closeGeminiKeyModal();
+      if(onSave) onSave();
+    },600);
+  };
+}
+function closeGeminiKeyModal(){
+  const el=document.getElementById('geminiKeyModal');
+  if(el) el.style.display='none';
+  if(window.popPopup) popPopup('geminiKeyModal');
+}
+
+/* ══ 가민 AI 분석 오버레이 ══ */
+function openGarminAIOverlay(photos){
+  let el=document.getElementById('garminAIOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='garminAIOverlay';
+    el.style.cssText='display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);overflow-y:auto;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`
+    <div style="max-width:480px;margin:0 auto;padding:20px 16px 40px;font-family:'Noto Sans KR',sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;"></span>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#fff;">AI 운동 분석</div>
+            <div style="font-size:11px;color:var(--subtext);">Gemini AI 코칭</div>
+          </div>
+        </div>
+        <button id="garminAIClose" style="background:none;border:none;color:var(--subtext);font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      <div id="garminAIBody"></div>
+    </div>`;
+  el.style.display='block';
+  if(window.pushPopup) pushPopup('garminAIOverlay',()=>closeGarminAIOverlay());
+  document.getElementById('garminAIClose').onclick=closeGarminAIOverlay;
+
+  // 분석 시작
+  const body=document.getElementById('garminAIBody');
+  const apiKey=localStorage.getItem('garmin_analyzer_gemini_key');
+  if(!apiKey){
+    body.innerHTML=`<div style="background:rgba(251,113,133,0.1);border:1px solid rgba(251,113,133,0.3);border-radius:12px;padding:14px 16px;color:var(--rose);font-size:13px;">
+      Gemini API 키가 없어요.
+    </div>
+    <button onclick="closeGarminAIOverlay();openGeminiKeyModal()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ API 키 입력하기</button>`;
+    return;
+  }
+
+  body.innerHTML=`<div style="text-align:center;padding:40px 0;color:var(--subtext);">
+    <div style="font-size:32px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block;">⟳</div>
+    <div style="font-size:13px;">Gemini AI 분석 중...</div>
+  </div>`;
+
+  (async()=>{
+    try{
+      // blob URL 또는 dataURL을 base64로 변환
+      const toBase64=async(src)=>{
+        if(src.startsWith('data:')) return src.split(',')[1];
+        const res=await fetch(src);
+        const blob=await res.blob();
+        return await new Promise(resolve=>{
+          const reader=new FileReader();
+          reader.onload=e=>resolve(e.target.result.split(',')[1]);
+          reader.readAsDataURL(blob);
+        });
+      };
+      const base64Photos=await Promise.all(photos.map(toBase64));
+      const parts=[
+        ...base64Photos.map(b64=>({inline_data:{mime_type:'image/jpeg',data:b64}})),
+        {text:`Extract workout data from this Garmin app screenshot and provide expert coaching analysis in Korean. Return ONLY a valid JSON object, no markdown, no explanation.
+
+JSON structure:
+{"activity_type":"","date":"","start_time":"","distance_km":0,"total_time":"","avg_pace":null,"avg_speed_kmh":null,"avg_hr":null,"max_hr":null,"calories":null,"cadence_avg":null,"elevation_gain":null,"splits":[{"label":"1km","pace":"M:SS","distance":"1.00km"}],"analysis":{"workout_type":"운동타입(LSD/템포런/인터벌/회복런 등)","intensity":"강도설명","body_effect":"신체효과 2-3문장","next_training":"다음훈련추천","comment":"총평 1-2문장","race_prediction":{"5k":"M:SS","10k":"M:SS","half":"H:MM:SS","full":"H:MM:SS"}}}
+
+Include ALL km splits up to total distance. Return raw JSON only.`}
+      ];
+
+      const MODELS=['gemini-2.5-flash','gemini-2.5-flash-lite'];
+      let text=null,lastErr='';
+      for(const model of MODELS){
+        try{
+          const res=await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({contents:[{parts}],generationConfig:{maxOutputTokens:4096,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})}
+          );
+          const d=await res.json();
+          if(res.ok&&!d.error){text=d.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';break;}
+          lastErr=d.error?.message||`HTTP ${res.status}`;
+          if(lastErr.includes('429')||lastErr.includes('quota')) throw new Error('잠시 후 다시 시도해주세요.');
+        }catch(fe){if(fe.message.includes('다시')) throw fe; lastErr=fe.message;}
+      }
+      if(!text) throw new Error(lastErr);
+
+      let parsed;
+      try{ parsed=JSON.parse(text.replace(/```json|```/g,'').trim()); }
+      catch(e){
+        const opens=(text.match(/{/g)||[]).length, closes=(text.match(/}/g)||[]).length;
+        let fixed=text.replace(/,\s*$/,'');
+        for(let i=0;i<opens-closes;i++) fixed+='}';
+        parsed=JSON.parse(fixed);
+      }
+      renderGarminResult(body, parsed);
+    }catch(e){
+      const isKeyErr=e.message.includes('API key')||e.message.includes('401')||e.message.includes('403');
+      body.innerHTML=`<div style="background:rgba(251,113,133,0.1);border:1px solid rgba(251,113,133,0.3);border-radius:12px;padding:14px 16px;color:var(--rose);font-size:13px;">분석 실패: ${e.message}</div>
+      ${isKeyErr?`<button onclick="closeGarminAIOverlay();openGeminiKeyModal()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ API 키 다시 입력</button>`:''}`;
+    }
+  })();
+}
+
+function closeGarminAIOverlay(){
+  const el=document.getElementById('garminAIOverlay');
+  if(el) el.style.display='none';
+  if(window.popPopup) popPopup('garminAIOverlay');
+}
+
+function renderGarminResult(body, r){
+  const C={lime:'var(--lime)',sky:'var(--sky)',rose:'var(--rose)',amber:'var(--amber)',green:'var(--green)',purple:'var(--purple)',text:'var(--text)',subtext:'var(--subtext)'};
+  const card=(label,value,unit,color)=>`
+    <div style="background:var(--card);border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:10px;color:${C.subtext};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;">${label}</div>
+      <span style="font-size:22px;font-weight:800;color:${color};">${value}</span>${unit?`<span style="font-size:12px;color:${C.subtext};margin-left:3px;">${unit}</span>`:''}
+    </div>`;
+
+  let html=`
+    <div style="background:var(--card);border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">🏃</span>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff;">${r.activity_type||''}</div>
+        <div style="font-size:11px;color:${C.subtext};">${r.date||''}${r.start_time?' · '+r.start_time+' 시작':''}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      ${card('거리',r.distance_km,'km',C.lime)}
+      ${card('총 시간',r.total_time||'-','',C.sky)}
+      ${r.avg_pace?card('평균 페이스',r.avg_pace,'',C.amber):''}
+      ${r.avg_hr?card('평균 심박',r.avg_hr,'bpm',C.rose):''}
+      ${r.calories?card('칼로리',r.calories,'kcal',C.purple):''}
+      ${r.avg_speed_kmh?card('평균 속도',r.avg_speed_kmh,'km/h',C.amber):''}
+    </div>`;
+
+  // 구간기록
+  if(r.splits?.length){
+    html+=`<div style="background:var(--card);border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:10px;">
+      <div style="font-size:10px;color:${C.subtext};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">구간 기록</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:4px;">
+        ${['구간','페이스','거리'].map(h=>`<div style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;padding:3px 6px;">${h}</div>`).join('')}
+      </div>`;
+    r.splits.forEach((s,i)=>{
+      html+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:${i%2?'transparent':'rgba(255,255,255,0.03)'};border-radius:5px;">
+        <div style="font-size:11px;color:${C.subtext};padding:5px 6px;">${s.label}</div>
+        <div style="font-size:12px;font-weight:700;color:${C.lime};padding:5px 6px;">${s.pace}</div>
+        <div style="font-size:11px;color:${C.text};padding:5px 6px;">${s.distance}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // 레이스 예측
+  const rp=r.analysis?.race_prediction;
+  if(rp){
+    const items=[['5K',rp['5k']],['10K',rp['10k']],['하프',rp.half],['풀마라톤',rp.full]].filter(i=>i[1]);
+    if(items.length){
+      html+=`<div style="background:var(--card);border-radius:12px;padding:12px 14px;border:1px solid rgba(255,255,255,0.06);margin-bottom:10px;">
+        <div style="font-size:10px;color:${C.subtext};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">레이스 예측</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          ${items.map(([l,v])=>`<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 10px;">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">${l}</div>
+            <div style="font-size:16px;font-weight:800;color:${C.sky};">${v}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+  }
+
+  // AI 코칭
+  const a=r.analysis;
+  if(a){
+    html+=`<div style="background:var(--card);border:1px solid rgba(163,230,53,0.25);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font-size:13px;color:var(--lime);font-weight:700;margin-bottom:12px;">💡 AI 코칭 분석</div>`;
+    if(a.workout_type) html+=`<div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:${C.lime};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">운동 타입</div>
+      <div style="font-size:15px;font-weight:800;color:#fff;">${a.workout_type}</div>
+      ${a.intensity?`<div style="font-size:13px;color:${C.subtext};margin-top:3px;">${a.intensity}</div>`:''}
+    </div>`;
+    if(a.body_effect) html+=`<div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:${C.sky};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">신체 효과</div>
+      <div style="font-size:14px;color:${C.text};line-height:1.7;">${a.body_effect}</div>
+    </div>`;
+    if(a.next_training) html+=`<div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:${C.amber};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">다음 훈련 추천</div>
+      <div style="font-size:14px;color:${C.text};line-height:1.7;">${a.next_training}</div>
+    </div>`;
+    if(a.comment) html+=`<div>
+      <div style="font-size:11px;color:${C.subtext};font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">총평</div>
+      <div style="font-size:14px;color:${C.subtext};line-height:1.7;">${a.comment}</div>
+    </div>`;
+    html+=`</div>`;
+  }
+
+  body.innerHTML=html;
+}
+
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow='';
@@ -2668,6 +2948,17 @@ function closePicker(){document.getElementById('pickerBackdrop').classList.remov
     <div class="settings-section">
       <div class="settings-section-label">요일별 루틴</div>
       <div id="routineTable"></div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-label">✦ Gemini API 키 <span id="geminiKeySavedBadge" style="font-size:10px;background:rgba(163,230,53,0.15);color:var(--lime);border:1px solid rgba(163,230,53,0.3);border-radius:6px;padding:1px 7px;font-weight:700;display:none;">저장됨</span></div>
+      <div id="geminiKeyInputRow" style="display:flex;gap:8px;margin-top:6px;">
+        <input type="password" id="geminiKeyInput" placeholder="AIza... 또는 AQ...." style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);padding:9px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none;">
+        <button id="geminiKeySaveBtn" style="padding:9px 14px;border-radius:10px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">저장</button>
+      </div>
+      <div id="geminiKeyClearRow" style="display:none;margin-top:6px;">
+        <button id="geminiKeyClearBtn" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;padding:0;">키 삭제</button>
+      </div>
+      <div id="geminiKeyHelp" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">사진 AI 분석 기능에 사용돼요. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--sky);text-decoration:none;">무료 발급 →</a></div>
     </div>
     </div>
     <div style="text-align:center;font-size:11px;color:var(--subtext);padding:10px 24px 0;flex-shrink:0;">루틴 저장 시 이번 주부터 반영됩니다.</div>
@@ -3961,10 +4252,10 @@ function startOnboarding(){
   renderOnbDots();
   bindOnboarding();
 }
-// 실제 슬라이드는 0~4 (환영,선택,로그인,루틴,완료) 고정
-// local 모드일 때는 점만 4개로 표시(로그인 제외), drive는 5개
+// 실제 슬라이드는 0~5 (환영,선택,로그인,루틴,Gemini,완료) 고정
+// local 모드일 때는 점만 5개로 표시(로그인 제외), drive는 6개
 function onbSlideCount(){
-  return onbMode==='local' ? 4 : 5;
+  return onbMode==='local' ? 5 : 6;
 }
 function renderOnbDots(){
   const dotsEl=document.getElementById('onbDots');
@@ -3974,7 +4265,7 @@ function renderOnbDots(){
     `<div class="onb-dot${i===visibleIdx?' active':''}"></div>`
   ).join('');
 }
-// 실제 슬라이드 인덱스(0~4) → 점 인덱스로 변환 (local모드면 2번 로그인 슬라이드 제외하고 카운트)
+// 실제 슬라이드 인덱스(0~5) → 점 인덱스로 변환 (local모드면 2번 로그인 슬라이드 제외하고 카운트)
 function onbCurrentVisibleIdx(){
   if(onbMode==='local' && onbSlideIdx>=3) return onbSlideIdx-1;
   return onbSlideIdx;
@@ -4037,7 +4328,20 @@ function bindOnboarding(){
     // 루틴 저장 완료 후 온보딩 마지막 단계로 돌아오도록 플래그
     localStorage.setItem('onboard_awaiting_routine', '1');
   };
-  document.getElementById('onbSkipBtn').onclick=()=>onbGoTo(4); // 완료 슬라이드(고정 인덱스)
+  document.getElementById('onbSkipBtn').onclick=()=>onbGoTo(4); // Gemini 슬라이드
+
+  // Gemini API 키 슬라이드 핸들러
+  document.getElementById('onbGeminiSaveBtn').onclick=()=>{
+    const v=document.getElementById('onbGeminiInput').value.trim();
+    if(v.length<10){
+      document.getElementById('onbGeminiStatus').textContent='키가 너무 짧아요.';
+      return;
+    }
+    localStorage.setItem('garmin_analyzer_gemini_key',v);
+    document.getElementById('onbGeminiInput').value='';
+    document.getElementById('onbGeminiStatus').innerHTML='<span style="color:var(--lime);">✓ 저장됐어요!</span>';
+  };
+  document.getElementById('onbGeminiNextBtn').onclick=()=>onbGoTo(5); // 완료 슬라이드
 
   document.getElementById('onbFinishBtn').onclick=()=>{
     localStorage.setItem('onboard_done_v1', '1');
@@ -4068,6 +4372,31 @@ function openSettings(){
 
   // 버튼 핸들러 먼저 등록 (패널 HTML은 이미 DOM에 있음)
   document.getElementById('settingsClose').onclick=closeSettings;
+
+  // Gemini API 키 관리
+  (()=>{
+    const updateGeminiKeyUi=()=>{
+      const saved=!!localStorage.getItem('garmin_analyzer_gemini_key');
+      document.getElementById('geminiKeySavedBadge').style.display=saved?'inline':'none';
+      document.getElementById('geminiKeyInputRow').style.display=saved?'none':'flex';
+      document.getElementById('geminiKeyClearRow').style.display=saved?'block':'none';
+      document.getElementById('geminiKeyHelp').style.display=saved?'none':'block';
+    };
+    updateGeminiKeyUi();
+    document.getElementById('geminiKeySaveBtn').onclick=()=>{
+      const v=document.getElementById('geminiKeyInput').value.trim();
+      if(v.length<10){alert('키가 너무 짧아요.');return;}
+      localStorage.setItem('garmin_analyzer_gemini_key',v);
+      document.getElementById('geminiKeyInput').value='';
+      updateGeminiKeyUi();
+    };
+    document.getElementById('geminiKeyClearBtn').onclick=()=>{
+      if(confirm('Gemini API 키를 삭제할까요?')){
+        localStorage.removeItem('garmin_analyzer_gemini_key');
+        updateGeminiKeyUi();
+      }
+    };
+  })();
   document.getElementById('settingsOverlay').onclick=e=>{if(e.target===document.getElementById('settingsOverlay'))closeSettings();};
   document.getElementById('settingsSave').onclick=()=>{
     const clean=JSON.parse(JSON.stringify(editRoutine));
