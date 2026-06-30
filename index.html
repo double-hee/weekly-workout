@@ -2304,25 +2304,28 @@ function buildPane(item){
   const allOpts=[...opts,...(selCustomOpt?[selCustomOpt]:[])];
 
   // 사진
-  const photos=getPhotosCached(dk,type);
+
+  // 사진/메모/분석은 selId 단위로 분리 (base는 type 그대로, extra는 type:selId)
+  const photoKey=isBase?type:`${type}:${selId}`;
+  const photos=getPhotosCached(dk,photoKey);
   const MAX_PHOTOS=10;
   const photoThumbsHTML=photos.map((src,i)=>`
-    <div class="photo-thumb" id="photoThumb-${type}-${i}">
-      <div class="photo-thumb-view" data-photoidx="${i}" data-phototype="${type}"></div>
+    <div class="photo-thumb" id="photoThumb-${photoKey}-${i}">
+      <div class="photo-thumb-view" data-photoidx="${i}" data-phototype="${photoKey}"></div>
       <img src="${src}" alt="운동 사진 ${i+1}">
-      <button class="photo-thumb-del" data-delidx="${i}" data-deltype="${type}">×</button>
-      <div class="photo-thumb-check" data-checkidx="${i}" data-checktype="${type}">
+      <button class="photo-thumb-del" data-delidx="${i}" data-deltype="${photoKey}">×</button>
+      <div class="photo-thumb-check" data-checkidx="${i}" data-checktype="${photoKey}">
         <span class="photo-check-icon">✓</span>
       </div>
     </div>`).join('');
   const photoAddHTML=photos.length<MAX_PHOTOS?`
     <label class="photo-add-btn" title="갤러리에서 추가">
       <span class="photo-add-icon">🖼️</span><span>갤러리</span>
-      <input type="file" accept="image/*" multiple class="photo-file-input" data-phototype="${type}" style="display:none">
+      <input type="file" accept="image/*" multiple class="photo-file-input" data-phototype="${photoKey}" style="display:none">
     </label>
     <label class="photo-add-btn" title="카메라로 촬영">
       <span class="photo-add-icon">📷</span><span>카메라</span>
-      <input type="file" accept="image/*" capture="environment" class="photo-file-input" data-phototype="${type}" style="display:none">
+      <input type="file" accept="image/*" capture="environment" class="photo-file-input" data-phototype="${photoKey}" style="display:none">
     </label>`:'';
   return`<div class="tab-pane ${type}-pane" data-ptype="${type}">
 
@@ -2384,24 +2387,26 @@ function buildPane(item){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="m-section-label" style="margin-bottom:0;">사진 <span style="font-size:11px;color:var(--subtext);font-weight:400;">(${photos.length}/${MAX_PHOTOS})</span></div>
       ${photos.length>0?`
-      <div class="photo-share-toolbar" id="photoShareToolbar-${type}">
-        <button class="photo-share-start-btn" data-sharetype="${type}">↑ 공유</button>
-        <button class="photo-ai-btn" data-aitype="${type}" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ AI분석</button>
+      <div class="photo-share-toolbar" id="photoShareToolbar-${photoKey}">
+        <button class="photo-share-start-btn" data-sharetype="${photoKey}">↑ 공유</button>
+        <button class="photo-ai-btn" data-aitype="${photoKey}" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ AI분석</button>
       </div>`:''}
     </div>
-    <div id="photoSelectBar-${type}" style="display:none;margin-bottom:8px;" class="photo-select-bar">
-      <button class="photo-sel-all-btn" data-seltype="${type}">전체 선택</button>
-      <span class="photo-sel-count" id="photoSelCount-${type}">0장 선택</span>
-      <button class="photo-sel-share-btn" data-seltype="${type}">공유</button>
-      <button class="photo-sel-cancel-btn" data-seltype="${type}">취소</button>
+    <div id="photoSelectBar-${photoKey}" style="display:none;margin-bottom:8px;" class="photo-select-bar">
+      <button class="photo-sel-all-btn" data-seltype="${photoKey}">전체 선택</button>
+      <span class="photo-sel-count" id="photoSelCount-${photoKey}">0장 선택</span>
+      <button class="photo-sel-share-btn" data-seltype="${photoKey}">공유</button>
+      <button class="photo-sel-cancel-btn" data-seltype="${photoKey}">취소</button>
     </div>
-    <div class="photo-grid" id="photoGrid-${type}">${photoThumbsHTML}</div>
+    <div class="photo-grid" id="photoGrid-${photoKey}">${photoThumbsHTML}</div>
     ${photos.length<MAX_PHOTOS?`<div class="photo-grid photo-add-row">${photoAddHTML}</div>`:''}
   </div>`;
 }
 
 function bindPaneEvents(){
   const {dk}=ctx;
+  // photoKey에서 sport type만 추출 (예: 'run:ex_1' → 'run', 'run' → 'run')
+  const getSportType=pk=>pk.includes(':')?pk.split(':')[0]:pk;
   if(!ctx._selId) ctx._selId={};
 
   // 운동 네비 버튼
@@ -2505,18 +2510,17 @@ function bindPaneEvents(){
   document.querySelectorAll('.photo-ai-btn').forEach(btn=>{
     btn.onclick=async e=>{
       e.stopPropagation();
-      const type=btn.dataset.aitype;
+      const photoKey=btn.dataset.aitype;
       const {dk}=ctx;
-      const photos=await getPhotos(dk,type);
+      const photos=await getPhotos(dk,photoKey);
       if(!photos.length){alert('분석할 사진이 없어요. 먼저 사진을 추가해주세요.'); return;}
       const apiKey=localStorage.getItem('garmin_analyzer_gemini_key');
       if(!apiKey){
-        openGeminiKeyModal(()=>openGarminAIOverlay(photos,dk,type));
+        openGeminiKeyModal(()=>openGarminAIOverlay(photos,dk,photoKey));
         return;
       }
-      // 저장된 결과 있으면 바로 표시
-      const stored=getStoredAnalysis(dk,type);
-      openGarminAIOverlay(photos, dk, type, stored?.result||null);
+      const stored=getStoredAnalysis(dk,photoKey);
+      openGarminAIOverlay(photos, dk, photoKey, stored?.result||null);
     };
   });
 
@@ -2541,13 +2545,13 @@ function bindPaneEvents(){
   document.querySelectorAll('.photo-sel-share-btn').forEach(btn=>{
     btn.onclick=async e=>{
       e.stopPropagation();
-      const type=btn.dataset.seltype;
-      const thumbs=[...document.querySelectorAll(`#photoGrid-${type} .photo-thumb.selected`)];
+      const photoKey=btn.dataset.seltype;
+      const thumbs=[...document.querySelectorAll(`#photoGrid-${photoKey} .photo-thumb.selected`)];
       if(!thumbs.length){showToast('공유할 사진을 선택해주세요.');return;}
-      const photos=getPhotosCached(dk,type);
+      const photos=getPhotosCached(dk,photoKey);
       const selected=thumbs.map(t=>parseInt(t.querySelector('.photo-thumb-check').dataset.checkidx));
-      await sharePhotos(photos,selected,dk,type);
-      exitSelectMode(type);
+      await sharePhotos(photos,selected,dk,photoKey);
+      exitSelectMode(photoKey);
     };
   });
 
@@ -2562,11 +2566,12 @@ function bindPaneEvents(){
   });
   document.querySelectorAll('.photo-file-input').forEach(inp=>{
     inp.onchange=e=>{
-      const type=inp.dataset.phototype;
+      const photoKey=inp.dataset.phototype;
+      const sportType=getSportType(photoKey);
       const files=Array.from(inp.files);
       if(!files.length) return;
-      const photos=getPhotosCached(dk,type);
-      const remaining=5-photos.length;
+      const photos=getPhotosCached(dk,photoKey);
+      const remaining=MAX_PHOTOS-photos.length;
       const toLoad=files.slice(0,remaining);
       const skipped=files.length-toLoad.length;
       let loaded=0;
@@ -2577,17 +2582,15 @@ function bindPaneEvents(){
             const dataUrl=await compressImage(ev.target.result);
             photos.push(dataUrl);
           }catch(e){
-            // 압축 실패 시 원본 사용
             photos.push(ev.target.result);
           }
           loaded++;
           if(loaded===toLoad.length){
-            await savePhotos(dk,type,photos);
-            photoCache[`${dk}:${type}`]=photos;
-            refreshPane(type);
+            await savePhotos(dk,photoKey,photos);
+            photoCache[`${dk}:${photoKey}`]=photos;
+            refreshPane(sportType);
             if(skipped>0) showToast(`${toLoad.length}장 추가됐어요. (${skipped}장 초과로 제외)`);
-            // 백그라운드 AI 분석 시작
-            runBackgroundAnalysis(dk, type, photos);
+            runBackgroundAnalysis(dk, photoKey, photos);
           }
         };
         reader.readAsDataURL(file);
@@ -2600,13 +2603,14 @@ function bindPaneEvents(){
   document.querySelectorAll('.photo-thumb-del').forEach(btn=>{
     btn.onclick=e=>{
       e.stopPropagation();
-      const type=btn.dataset.deltype;
+      const photoKey=btn.dataset.deltype;
+      const sportType=getSportType(photoKey);
       const idx=parseInt(btn.dataset.delidx);
-      getPhotos(dk,type).then(async photos=>{
+      getPhotos(dk,photoKey).then(async photos=>{
         photos.splice(idx,1);
-        await savePhotos(dk,type,photos);
-        photoCache[`${dk}:${type}`]=photos;
-        refreshPane(type);
+        await savePhotos(dk,photoKey,photos);
+        photoCache[`${dk}:${photoKey}`]=photos;
+        refreshPane(sportType);
       });
     };
   });
@@ -2748,8 +2752,11 @@ async function refreshPane(type, alignLeft=false, direction=null){
   }
   if(type===ctx.activeType) requestAnimationFrame(updateTabIndicator);
   bindPaneEvents();
-  // 사진 캐시는 교체 후 백그라운드에서 로드 (사진 탭 접근 시 필요)
-  loadPhotoCache(ctx.dk,type);
+  // 사진 캐시는 교체 후 백그라운드에서 로드 (base + extras 모두)
+  const m4cache=getMulti(ctx.dk,type)||{base:{},extras:[]};
+  const photoKeys4cache=['base',...(m4cache.extras||[]).map(e=>e.id)]
+    .map(sid=>sid==='base'?type:`${type}:${sid}`);
+  photoKeys4cache.forEach(pk=>loadPhotoCache(ctx.dk,pk));
 }
 
 document.getElementById('modalClose').onclick=closeModal;
@@ -2806,6 +2813,34 @@ function closeGeminiKeyModal(){
 /* ══ 가민 백그라운드 AI 분석 ══ */
 const GARMIN_ANALYSIS_PREFIX = 'garmin_analysis_';
 
+// 과거 분석 기록 수집 (레이스 예측 종합 분석용)
+function getPastAnalyses(currentDk, currentType, limit=100){
+  const results=[];
+  const oneMonthAgo=Date.now()-30*24*60*60*1000;
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      if(!k.startsWith(GARMIN_ANALYSIS_PREFIX)) return;
+      const stored=JSON.parse(localStorage.getItem(k)||'null');
+      if(!stored?.result) return;
+      if((stored.analyzedAt||0) < oneMonthAgo) return; // 한 달 이내만
+      const r=stored.result;
+      if(!r.distance_km && !r.avg_pace) return;
+      results.push({
+        date: r.date||'',
+        activity_type: r.activity_type||'',
+        distance_km: r.distance_km,
+        total_time: r.total_time,
+        avg_pace: r.avg_pace,
+        avg_hr: r.avg_hr,
+        workout_type: r.analysis?.workout_type||'',
+        analyzedAt: stored.analyzedAt||0
+      });
+    });
+    results.sort((a,b)=>b.analyzedAt-a.analyzedAt);
+  }catch(e){}
+  return results.slice(0,limit);
+}
+
 function getStoredAnalysis(dk, type){
   try{ return JSON.parse(localStorage.getItem(`${GARMIN_ANALYSIS_PREFIX}${dk}_${type}`)||'null'); }
   catch(e){ return null; }
@@ -2840,10 +2875,13 @@ async function runBackgroundAnalysis(dk, type, photos){
       ...base64Photos.map(b64=>({inline_data:{mime_type:'image/jpeg',data:b64}})),
       {text:`Extract workout data from this Garmin app screenshot and provide expert coaching analysis in Korean. Return ONLY a valid JSON object, no markdown, no explanation.
 
+Past workout history for comprehensive race prediction:
+${(()=>{const h=getPastAnalyses(dk,type);return h.length>0?JSON.stringify(h):'(no past records yet)';})()}
+
 JSON structure:
 {"activity_type":"","date":"","start_time":"","distance_km":0,"total_time":"","avg_pace":null,"avg_speed_kmh":null,"avg_hr":null,"max_hr":null,"calories":null,"cadence_avg":null,"elevation_gain":null,"splits":[{"label":"1km","pace":"M:SS","distance":"1.00km"}],"analysis":{"workout_type":"운동타입(LSD/템포런/인터벌/회복런 등)","intensity":"강도설명","body_effect":"신체효과 2-3문장","next_training":"다음훈련추천","comment":"총평 1-2문장","race_prediction":{"5k":"M:SS","10k":"M:SS","half":"H:MM:SS","full":"H:MM:SS"}}}
 
-Include ALL km splits up to total distance. Return raw JSON only.`}
+For race_prediction: use ALL past workout history provided above for a comprehensive estimate, NOT just this single run. Include ALL km splits up to total distance. Return raw JSON only.`}
     ];
 
     const MODELS = ['gemini-2.5-flash','gemini-2.5-flash-lite'];
@@ -2952,10 +2990,13 @@ function openGarminAIOverlay(photos, dk, type, cachedResult){
         ...base64Photos.map(b64=>({inline_data:{mime_type:'image/jpeg',data:b64}})),
         {text:`Extract workout data from this Garmin app screenshot and provide expert coaching analysis in Korean. Return ONLY a valid JSON object, no markdown, no explanation.
 
+Past workout history for comprehensive race prediction:
+${(()=>{const h=getPastAnalyses(dk,type);return h.length>0?JSON.stringify(h):'(no past records yet)';})()}
+
 JSON structure:
 {"activity_type":"","date":"","start_time":"","distance_km":0,"total_time":"","avg_pace":null,"avg_speed_kmh":null,"avg_hr":null,"max_hr":null,"calories":null,"cadence_avg":null,"elevation_gain":null,"splits":[{"label":"1km","pace":"M:SS","distance":"1.00km"}],"analysis":{"workout_type":"운동타입(LSD/템포런/인터벌/회복런 등)","intensity":"강도설명","body_effect":"신체효과 2-3문장","next_training":"다음훈련추천","comment":"총평 1-2문장","race_prediction":{"5k":"M:SS","10k":"M:SS","half":"H:MM:SS","full":"H:MM:SS"}}}
 
-Include ALL km splits up to total distance. Return raw JSON only.`}
+For race_prediction: use ALL past workout history provided above for a comprehensive estimate, NOT just this single run. Include ALL km splits up to total distance. Return raw JSON only.`}
       ];
 
       const MODELS=['gemini-2.5-flash','gemini-2.5-flash-lite'];
