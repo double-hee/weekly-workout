@@ -3128,7 +3128,7 @@ function openWibAddSheet(type){
   const el=_openWibSheet();
   el.innerHTML=`<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:18px 16px 36px;font-family:'Noto Sans KR',sans-serif;">
     <div style="width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 14px;"></div>
-    <div style="font-size:14px;font-weight:800;color:${tColor};margin-bottom:14px;">${wt.icon||''} 추가 운동 추가</div>
+    <div style="font-size:14px;font-weight:800;color:${tColor};margin-bottom:14px;">${wt.icon||''} 운동 추가</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
       ${opts.map(opt=>`<button onclick="addWibExtra('${type}','${opt.replace(/'/g,"\\'")}')"
         style="padding:8px 14px;border-radius:10px;border:1.5px solid rgba(${tRgb},0.25);background:rgba(255,255,255,0.05);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">${esc(opt)}</button>`).join('')}
