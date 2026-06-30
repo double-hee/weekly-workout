@@ -319,7 +319,7 @@
     .tab-add-btn:hover{opacity:1;color:var(--lime);background:rgba(163,230,53,0.08);}
 
     /* tab pane */
-    .tab-pane{display:none;}
+    .tab-pane{display:none;max-width:100%;}
     .tab-pane.active{display:block;}
 
     /* section */
@@ -339,6 +339,10 @@
     .changed-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;min-height:24px;}
     .changed-chip{display:flex;align-items:center;gap:5px;padding:5px 10px 5px 12px;border-radius:20px;font-size:13px;font-weight:600;animation:chipIn 0.15s ease;}
     @keyframes chipIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:none;}}
+    @keyframes paneSlideFromRight{from{opacity:0;transform:translateX(28px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes paneSlideFromLeft{from{opacity:0;transform:translateX(-28px);}to{opacity:1;transform:translateX(0);}}
+    .pane-slide-right{animation:paneSlideFromRight 0.22s cubic-bezier(0.25,0.46,0.45,0.94);}
+    .pane-slide-left{animation:paneSlideFromLeft 0.22s cubic-bezier(0.25,0.46,0.45,0.94);}
     .chip-x{background:none;border:none;cursor:pointer;font-size:14px;line-height:1;color:inherit;opacity:0.6;padding:0;}
     .chip-x:hover{opacity:1;}
     .no-changed{font-size:12px;color:var(--muted);font-style:italic;}
@@ -1215,9 +1219,11 @@ ${jsonStr}
       <div class="modal-date-txt" id="modalDateTxt"></div>
     </div>
     <!-- 탭 -->
-    <div class="modal-tabs" id="modalTabs"></div>
+    <div class="modal-tabs" id="modalTabs" style="position:relative;">
+      <div id="modalTabIndicator" style="position:absolute;bottom:-1px;height:2px;border-radius:2px;transition:left 0.2s ease,width 0.2s ease,background 0.2s ease;"></div>
+    </div>
     <!-- 탭 패널들 -->
-    <div id="modalPanes"></div>
+    <div id="modalPanes" style="overflow-x:hidden;"></div>
   </div>
 </div>
 
@@ -1353,7 +1359,7 @@ const ALL_WORKOUT_TYPES = Object.keys(WORKOUT_TYPES);
     css += `.rt-type-btn.sel-${t}{background:rgba(${rgb},0.18);border-color:rgba(${rgb},0.5);}\n`;
     css += `.picker-item.sel-${t}{border-color:rgba(${rgb},0.35);background:rgba(${rgb},0.07);}\n`;
     css += `.picker-item.sel-${t} .picker-check{opacity:1;}\n`;
-    css += `.modal-tab.active-${t}{color:${color};border-bottom-color:${color};}\n`;
+    css += `.modal-tab.active-${t}{color:${color};}\n`;
     css += `.${t}-pane .m-section-label{color:${color};}\n`;
     css += `.${t}-pane .add-btn:hover{background:rgba(${rgb},0.08);border-color:rgba(${rgb},0.3);color:${color};}\n`;
     css += `.btn-${t}{background:rgba(${rgb},0.15);color:${color};border:1px solid rgba(${rgb},0.3);}\n`;
@@ -1999,17 +2005,17 @@ function openModal(dayIndex,dk,dateLabel,initialType=null,offset=null){
     const workItems=['base',...(m.extras||[]).map(e=>e.id)];
     const wIdx=workItems.indexOf(s_selId);
     if(dx<0){
-      if(wIdx<workItems.length-1){ ctx._selId[ctx.activeType]=workItems[wIdx+1]; refreshPane(ctx.activeType, true); }
-      else if(sportIdx<sportTabs.length-1){ ctx.activeType=sportTabs[sportIdx+1]; renderModalTabs(); renderModalPanes(); }
+      if(wIdx<workItems.length-1){ ctx._selId[ctx.activeType]=workItems[wIdx+1]; refreshPane(ctx.activeType, true, 'next'); }
+      else if(sportIdx<sportTabs.length-1){ ctx.activeType=sportTabs[sportIdx+1]; renderModalTabs(); renderModalPanes('next'); }
     } else {
-      if(wIdx>0){ ctx._selId[ctx.activeType]=workItems[wIdx-1]; refreshPane(ctx.activeType, true); }
+      if(wIdx>0){ ctx._selId[ctx.activeType]=workItems[wIdx-1]; refreshPane(ctx.activeType, true, 'prev'); }
       else if(sportIdx>0){
         const prev=sportTabs[sportIdx-1];
         const mp=getMulti(ctx.dk,prev)||{base:{},extras:[]};
         const prevItems=['base',...(mp.extras||[]).map(e=>e.id)];
         ctx.activeType=prev;
         ctx._selId[prev]=prevItems[prevItems.length-1];
-        renderModalTabs(); renderModalPanes();
+        renderModalTabs(); renderModalPanes('prev');
       }
     }
   };
@@ -2095,7 +2101,8 @@ function renderModalTabs(){
     html+=`<button class="modal-tab tab-add-btn" data-addtabtype="${type}" title="${lbl} 탭 추가"><span class="tab-icon">${icon}</span><span>＋</span></button>`;
   });
 
-  tabsEl.innerHTML=html;
+  tabsEl.innerHTML=html+'<div id="modalTabIndicator" style="position:absolute;bottom:-1px;height:2px;border-radius:2px;transition:left 0.2s ease,width 0.2s ease,background 0.2s ease;"></div>';
+  requestAnimationFrame(updateTabIndicator);
 
   // 탭 클릭
   tabsEl.querySelectorAll('.modal-tab[data-tabtype]').forEach(btn=>{
@@ -2183,26 +2190,61 @@ function renderModalTabs(){
   });
 }
 
-function renderModalPanes(){
+// 종목 탭 하단 인디케이터: 활성 탭 폭을 현재 종목의 운동 항목 개수로 나눠
+// 현재 선택된 항목 위치에 맞게 작은 바를 좌우로 이동시킴
+function updateTabIndicator(){
+  const tabsEl=document.getElementById('modalTabs');
+  const indEl=document.getElementById('modalTabIndicator');
+  if(!tabsEl||!indEl) return;
+  const activeBtn=tabsEl.querySelector(`.modal-tab[data-tabtype="${ctx.activeType}"]`);
+  if(!activeBtn){ indEl.style.width='0'; return; }
+
+  const wt=WORKOUT_TYPES[ctx.activeType]||{};
+  const tColor=wt.color||'var(--text)';
+
+  // 현재 종목의 운동 항목 개수 + 현재 선택 인덱스
+  const m=getMulti(ctx.dk,ctx.activeType)||{base:{},extras:[]};
+  const workItems=['base',...(m.extras||[]).map(e=>e.id)];
+  const selId=(ctx._selId&&ctx._selId[ctx.activeType])||'base';
+  const idx=Math.max(0, workItems.indexOf(selId));
+  const total=workItems.length||1;
+
+  const tabRect=activeBtn.getBoundingClientRect();
+  const parentRect=tabsEl.getBoundingClientRect();
+  const tabLeft=tabRect.left-parentRect.left+tabsEl.scrollLeft;
+  const tabWidth=tabRect.width;
+
+  const segWidth=tabWidth/total;
+  const segLeft=tabLeft+segWidth*idx;
+
+  indEl.style.background=tColor;
+  indEl.style.width=`${segWidth}px`;
+  indEl.style.left=`${segLeft}px`;
+}
+
+function renderModalPanes(direction=null){
   const panesEl=document.getElementById('modalPanes');
   panesEl.innerHTML=ctx.tabs.map(t=>buildPane(t)).join('');
   // show only active pane
   panesEl.querySelectorAll('.tab-pane').forEach(p=>{
-    p.style.display=p.dataset.ptype===ctx.activeType?'block':'none';
+    const isActive=p.dataset.ptype===ctx.activeType;
+    p.style.display=isActive?'block':'none';
+    if(isActive&&direction==='next') p.classList.add('pane-slide-right');
+    else if(isActive&&direction==='prev') p.classList.add('pane-slide-left');
   });
-  // 현재 종목의 운동 네비: 선택된 항목이 왼쪽에 보이도록 스크롤 위치 설정
+  // 현재 종목의 운동 네비: 선택된 항목이 왼쪽에 보이도록 스크롤 위치를 동기적으로 즉시 설정
+  // (rAF로 미루면 0→목표위치로 이동하는 게 한 프레임 더 보여 "갔다 돌아오는" 잔상이 생김)
   const activeNav=panesEl.querySelector(`#wibNav-${ctx.activeType}`);
   if(activeNav){
-    requestAnimationFrame(()=>{
-      const activeBtn=activeNav.querySelector('.wib-active');
-      if(activeBtn){
-        activeBtn.scrollIntoView({behavior:'instant', inline:'start', block:'nearest'});
-        activeNav.scrollLeft=Math.max(0, activeNav.scrollLeft-4); // 디밍/glow 영역 보정
-      } else {
-        activeNav.scrollLeft=0;
-      }
-    });
+    const activeBtn=activeNav.querySelector('.wib-active');
+    if(activeBtn){
+      activeBtn.scrollIntoView({behavior:'instant', inline:'start', block:'nearest'});
+      activeNav.scrollLeft=Math.max(0, activeNav.scrollLeft-4); // 디밍/glow 영역 보정
+    } else {
+      activeNav.scrollLeft=0;
+    }
   }
+  requestAnimationFrame(updateTabIndicator);
   bindPaneEvents();
 }
 
@@ -2234,16 +2276,21 @@ function buildPane(item){
   const navItems=[{id:'base',label:baseLabel,trophy:!!baseRaceInfo},...extras.map(e=>({id:e.id,label:e.opt||e.name||'추가 운동',trophy:false}))];
   const navHTML=navItems.map(ni=>{
     const isActive=ni.id===selId;
+    const isBaseItem=ni.id==='base';
     return `
-    <button class="workout-item-btn workout-item-btn-${type}${isActive?' wib-active':''}"
-      data-wibtype="${type}" data-wibid="${ni.id}"
-      style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;flex-shrink:0;transition:all 0.15s;
-      border:1.5px solid ${isActive?tColor:`rgba(${tRgb},0.2)`};
-      background:${isActive?`rgba(${tRgb},0.18)`:'transparent'};
-      color:${isActive?tColor:'var(--subtext)'};
-      ${isActive?`box-shadow:0 0 0 3px rgba(${tRgb},0.12);`:''}">
-      ${ni.trophy?'🥇 ':''}${esc(ni.label)}
-    </button>`;
+    <div style="position:relative;flex-shrink:0;">
+      <button class="workout-item-btn workout-item-btn-${type}${isActive?' wib-active':''}"
+        data-wibtype="${type}" data-wibid="${ni.id}"
+        style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all 0.15s;
+        border:1.5px solid ${isActive?tColor:`rgba(${tRgb},0.2)`};
+        background:${isActive?`rgba(${tRgb},0.18)`:'transparent'};
+        color:${isActive?tColor:'var(--subtext)'};
+        ${isActive?`box-shadow:0 0 0 3px rgba(${tRgb},0.12);`:''}">
+        ${ni.trophy?'🥇 ':''}${esc(ni.label)}
+      </button>
+      ${!isBaseItem?`<button class="wib-del-btn tab-remove" data-delextype="${type}" data-delexid="${ni.id}"
+        style="position:absolute;top:-6px;right:-4px;border:none;cursor:pointer;font-size:10px;line-height:1;padding:0;">×</button>`:''}
+    </div>`;
   }).join('')+`
     <button class="wib-add-btn" data-wibaddtype="${type}"
       style="padding:5px 9px;border-radius:20px;border:1.5px dashed rgba(255,255,255,0.15);background:transparent;color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0;">＋</button>`;
@@ -2283,30 +2330,29 @@ function buildPane(item){
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 16px 6px 6px;scrollbar-width:none;flex-wrap:nowrap;" id="wibNav-${type}">
       ${navHTML}
     </div>
+    <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0 14px;"></div>
 
     <!-- 운동 카드 -->
     <div class="workout-detail-card" id="wibCard-${type}"
-      style="background:var(--card);border-radius:14px;padding:10px 14px;border:1.5px solid rgba(${tRgb},0.25);margin-bottom:12px;">
-      <!-- 카드 헤더 (컴팩트) -->
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:8px;">
-        ${isLocked?`<button class="race-plan-link" data-raceid="${raceInfo.id}"
-          style="flex:1;text-align:left;background:rgba(163,230,53,0.08);border:1.5px solid rgba(163,230,53,0.3);border-radius:14px;padding:4px 12px;font-size:12px;color:var(--lime);font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">
-          🔗 대회 정보 수정
-        </button>`:`<span style="flex:1;"></span>`}
+      style="background:transparent;border:none;padding:0;margin-bottom:12px;">
+      <!-- 계획 타이틀 + 대회링크/완료체크 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="m-section-label" style="margin-bottom:0;">계획</span>
+          ${isLocked?`<button class="race-plan-link" data-raceid="${raceInfo.id}"
+            style="background:rgba(163,230,53,0.08);border:1.5px solid rgba(163,230,53,0.3);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--lime);font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">
+            🔗 대회 정보 수정
+          </button>`:''}
+        </div>
         <button class="wib-done-toggle${selDone?' wib-done-on':''}" data-donetype="${type}" data-doneid="${selId}"
-          style="padding:4px 12px;border-radius:14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;
-          border:1.5px solid ${selDone?tColor:`rgba(${tRgb},0.25)`};
-          background:${selDone?`rgba(${tRgb},0.18)`:'transparent'};
-          color:${selDone?tColor:'var(--subtext)'};">
+          style="padding:4px 12px;border-radius:14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;flex-shrink:0;
+          border:1.5px solid ${selDone?'var(--green)':'rgba(74,222,128,0.3)'};
+          background:${selDone?'rgba(74,222,128,0.18)':'transparent'};
+          color:${selDone?'var(--green)':'rgba(74,222,128,0.7)'};">
           ${selDone?'✓ 완료체크':'완료체크'}
         </button>
-        ${!isLocked?`<button class="wib-edit-btn" data-edittype="${type}" data-editid="${selId}"
-          style="padding:4px 10px;border-radius:14px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">✏️ 수정</button>`:''}\
-        ${!isBase?`<button class="wib-del-btn" data-delextype="${type}" data-delexid="${selId}"
-          style="padding:4px 10px;border-radius:14px;border:1.5px solid rgba(251,113,133,0.2);background:rgba(251,113,133,0.05);color:var(--rose);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">✕ 삭제</button>`:''}\
       </div>
-      <!-- 세부 기록 (라벨 없음) -->
-
+      <!-- 세부 기록(계획 입력 영역) - 메모와 동일한 폭/스타일 -->
       ${isLocked ? `
       <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--subtext);line-height:1.6;">
         ${raceInfo.event?`시합 종목 : <span style="color:${tColor};font-weight:700;">${esc(raceInfo.event)}</span>`:'<span style="color:var(--muted);">시합 종목 미정</span>'}
@@ -2363,8 +2409,27 @@ function bindPaneEvents(){
     btn.onclick=e=>{
       e.stopPropagation();
       const type=btn.dataset.wibtype, id=btn.dataset.wibid;
+      const wasActive=ctx._selId[type]===id||(!ctx._selId[type]&&id==='base');
+      if(wasActive){
+        // 이미 선택된 항목을 다시 누르면 수정모드(항목 선택 시트)로 진입
+        openWibOptSheet(type, id);
+        return;
+      }
       ctx._selId[type]=id;
       refreshPane(type);
+    };
+  });
+
+  // 운동 네비 삭제 버튼 (추가 운동만)
+  document.querySelectorAll('.wib-del-btn').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      const type=btn.dataset.delextype, selId=btn.dataset.delexid;
+      const m=getMulti(dk,type)||{base:{},extras:[],customOpt:{}};
+      m.extras=(m.extras||[]).filter(ex=>ex.id!==selId);
+      saveMulti(dk,type,m);
+      if(ctx._selId[type]===selId) ctx._selId[type]='base';
+      refreshPane(type); renderSlides();
     };
   });
 
@@ -2386,28 +2451,6 @@ function bindPaneEvents(){
       saveMultiDone(dk,type,selId,!cur);
       // 기본 운동 완료는 DONE_KEY에도 반영 (메인 카드 표시용)
       if(selId==='base') saveDone(dk,type,!cur);
-      refreshPane(type); renderSlides();
-    };
-  });
-
-  // 수정 버튼 → 항목 선택 바텀시트
-  document.querySelectorAll('.wib-edit-btn').forEach(btn=>{
-    btn.onclick=e=>{
-      e.stopPropagation();
-      const type=btn.dataset.edittype, selId=btn.dataset.editid;
-      openWibOptSheet(type, selId);
-    };
-  });
-
-  // 삭제 버튼 (추가 운동)
-  document.querySelectorAll('.wib-del-btn').forEach(btn=>{
-    btn.onclick=e=>{
-      e.stopPropagation();
-      const type=btn.dataset.delextype, selId=btn.dataset.delexid;
-      const m=getMulti(dk,type)||{base:{},extras:[],customOpt:{}};
-      m.extras=(m.extras||[]).filter(ex=>ex.id!==selId);
-      saveMulti(dk,type,m);
-      ctx._selId[type]='base';
       refreshPane(type); renderSlides();
     };
   });
@@ -2672,7 +2715,7 @@ function updateMemoDelBtn(type){
 }
 
 // 특정 탭만 재렌더
-async function refreshPane(type, alignLeft=false){
+async function refreshPane(type, alignLeft=false, direction=null){
   const item=ctx.tabs.find(t=>t.type===type);
   if(!item)return;
   // 사진 캐시 미리 로드
@@ -2687,23 +2730,24 @@ async function refreshPane(type, alignLeft=false){
   tmp.innerHTML=buildPane(item);
   const newPane=tmp.firstElementChild;
   newPane.style.display=type===ctx.activeType?'block':'none';
+  if(direction==='next') newPane.classList.add('pane-slide-right');
+  else if(direction==='prev') newPane.classList.add('pane-slide-left');
   panesEl.replaceChild(newPane,oldPane);
   const newNav=newPane.querySelector(`#wibNav-${type}`);
   if(newNav){
     if(alignLeft){
-      requestAnimationFrame(()=>{
-        const activeBtn=newNav.querySelector('.wib-active');
-        if(activeBtn){
-          activeBtn.scrollIntoView({behavior:'instant', inline:'start', block:'nearest'});
-          newNav.scrollLeft=Math.max(0, newNav.scrollLeft-4); // 디밍/glow 영역 보정
-        } else {
-          newNav.scrollLeft=0;
-        }
-      });
+      const activeBtn=newNav.querySelector('.wib-active');
+      if(activeBtn){
+        activeBtn.scrollIntoView({behavior:'instant', inline:'start', block:'nearest'});
+        newNav.scrollLeft=Math.max(0, newNav.scrollLeft-4); // 디밍/glow 영역 보정
+      } else {
+        newNav.scrollLeft=0;
+      }
     } else {
       newNav.scrollLeft=navScrollLeft;
     }
   }
+  if(type===ctx.activeType) requestAnimationFrame(updateTabIndicator);
   bindPaneEvents();
 }
 
