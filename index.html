@@ -1317,6 +1317,9 @@ function isPublicHoliday(date){
   return FIXED_HOLIDAYS.has(`${mm}-${dd}`)||LUNAR_HOLIDAYS.has(full);
 }
 const NOTES_KEY  = 'workout_notes_v4';
+const MAX_PHOTOS = 10;
+// photoKey에서 sport type만 추출 (예: 'run:ex_1' → 'run', 'run' → 'run')
+const getSportType=pk=>pk.includes(':')?pk.split(':')[0]:pk;
 const PHOTOS_KEY = 'workout_photos_v1'; // legacy (unused)
 const ACTUAL_KEY = 'workout_actual_v4';
 const CUSTOM_KEY = 'workout_custom_v4';
@@ -1458,8 +1461,8 @@ function linkify(text){
   ).replace(/\n/g,'<br>');
 }
 
-const getNote  = (dk,type)=>load(NOTES_KEY)[`${dk}:${type}`]||'';
-const saveNote = (dk,type,txt)=>{const d=load(NOTES_KEY),k=`${dk}:${type}`;txt.trim()?d[k]=txt.trim():delete d[k];save(NOTES_KEY,d);};
+const getNote  = (dk,noteKey)=>load(NOTES_KEY)[`${dk}:${noteKey}`]||'';
+const saveNote = (dk,noteKey,txt)=>{const d=load(NOTES_KEY),k=`${dk}:${noteKey}`;txt.trim()?d[k]=txt.trim():delete d[k];save(NOTES_KEY,d);};
 
 const getPhotos  = async (dk,type)=>{
   try{
@@ -2308,7 +2311,6 @@ function buildPane(item){
   // 사진/메모/분석은 selId 단위로 분리 (base는 type 그대로, extra는 type:selId)
   const photoKey=isBase?type:`${type}:${selId}`;
   const photos=getPhotosCached(dk,photoKey);
-  const MAX_PHOTOS=10;
   const photoThumbsHTML=photos.map((src,i)=>`
     <div class="photo-thumb" id="photoThumb-${photoKey}-${i}">
       <div class="photo-thumb-view" data-photoidx="${i}" data-phototype="${photoKey}"></div>
@@ -2368,18 +2370,18 @@ function buildPane(item){
     <!-- 메모 -->
     <div class="modal-divider"></div>
     <div class="m-section-label">메모</div>
-    <div class="note-preview" id="notePreview-${type}" style="${getNote(dk,type)?'':'display:none'}">${linkify(getNote(dk,type))}</div>
-    <textarea class="note-ta" id="noteTa-${type}" placeholder="메모...">${esc(getNote(dk,type))}</textarea>
+    <div class="note-preview" id="notePreview-${photoKey}" style="${getNote(dk,photoKey)?'':'display:none'}">${linkify(getNote(dk,photoKey))}</div>
+    <textarea class="note-ta" id="noteTa-${photoKey}" placeholder="메모...">${esc(getNote(dk,photoKey))}</textarea>
     <div class="modal-actions">
-      <div class="memo-del-wrap" id="memoDelWrap-${type}">
-        <button class="btn btn-danger" id="memoDelBtn-${type}">🗑 삭제</button>
-        <div class="memo-del-confirm" id="memoDelConfirm-${type}" style="display:none;">
-          <button class="del-confirm-yes" id="memoDelYes-${type}">삭제</button>
-          <button class="del-confirm-no"  id="memoDelNo-${type}">취소</button>
+      <div class="memo-del-wrap" id="memoDelWrap-${photoKey}">
+        <button class="btn btn-danger" id="memoDelBtn-${photoKey}">🗑 삭제</button>
+        <div class="memo-del-confirm" id="memoDelConfirm-${photoKey}" style="display:none;">
+          <button class="del-confirm-yes" id="memoDelYes-${photoKey}">삭제</button>
+          <button class="del-confirm-no"  id="memoDelNo-${photoKey}">취소</button>
         </div>
       </div>
       <button class="btn btn-ghost" id="memoCopyBtn-${type}">📋 복사</button>
-      <button class="btn btn-${type}" data-notesave="${type}">메모 저장</button>
+      <button class="btn btn-${type}" data-notesave="${photoKey}">메모 저장</button>
     </div>
 
     <!-- 사진 -->
@@ -2406,7 +2408,6 @@ function buildPane(item){
 function bindPaneEvents(){
   const {dk}=ctx;
   // photoKey에서 sport type만 추출 (예: 'run:ex_1' → 'run', 'run' → 'run')
-  const getSportType=pk=>pk.includes(':')?pk.split(':')[0]:pk;
   if(!ctx._selId) ctx._selId={};
 
   // 운동 네비 버튼
@@ -2624,98 +2625,71 @@ function bindPaneEvents(){
       openPhotoViewer(dk,type,idx);
     };
   });
-  // 메모 삭제 버튼 — 인라인 확인
-  ctx.tabs.forEach(({type})=>{
-    const delBtn=document.getElementById(`memoDelBtn-${type}`);
-    const confirmEl=document.getElementById(`memoDelConfirm-${type}`);
-    const yesBtn=document.getElementById(`memoDelYes-${type}`);
-    const noBtn=document.getElementById(`memoDelNo-${type}`);
-    if(!delBtn||!confirmEl) return;
-    if(!getNote(ctx.dk,type)) delBtn.style.display='none';
-    delBtn.onclick=e=>{
-      e.stopPropagation();
-      delBtn.style.display='none';
-      confirmEl.style.display='flex';
-    };
-    yesBtn.onclick=e=>{
-      e.stopPropagation();
-      saveNote(ctx.dk,type,'');
-      renderSlides();
-      refreshPane(type);
-    };
-    noBtn.onclick=e=>{
-      e.stopPropagation();
-      confirmEl.style.display='none';
-      if(getNote(ctx.dk,type)) delBtn.style.display='';
-    };
+  // 메모 삭제 버튼 — photoKey 기반 (selId별 분리)
+  document.querySelectorAll('[id^="memoDelBtn-"]').forEach(delBtn=>{
+    const photoKey=delBtn.id.replace('memoDelBtn-','');
+    const confirmEl=document.getElementById(`memoDelConfirm-${photoKey}`);
+    const yesBtn=document.getElementById(`memoDelYes-${photoKey}`);
+    const noBtn=document.getElementById(`memoDelNo-${photoKey}`);
+    if(!confirmEl) return;
+    const sportType=getSportType(photoKey);
+    if(!getNote(dk,photoKey)) delBtn.style.display='none';
+    delBtn.onclick=e=>{e.stopPropagation();delBtn.style.display='none';confirmEl.style.display='flex';};
+    yesBtn.onclick=e=>{e.stopPropagation();saveNote(dk,photoKey,'');renderSlides();refreshPane(sportType);};
+    noBtn.onclick=e=>{e.stopPropagation();confirmEl.style.display='none';if(getNote(dk,photoKey))delBtn.style.display='';};
   });
 
   // 메모 복사 버튼
-  ctx.tabs.forEach(({type})=>{
-    const btn=document.getElementById(`memoCopyBtn-${type}`);
-    if(!btn) return;
+  document.querySelectorAll('[id^="memoCopyBtn-"]').forEach(btn=>{
+    const photoKey=btn.id.replace('memoCopyBtn-','');
     btn.onclick=e=>{
       e.stopPropagation();
-      const text=getNote(ctx.dk,type);
+      const text=getNote(dk,photoKey);
       if(!text){btn.textContent='없음';setTimeout(()=>{btn.textContent='📋 복사';},1200);return;}
       navigator.clipboard.writeText(text).then(()=>{
-        btn.textContent='✓ 복사됨';
-        setTimeout(()=>{btn.textContent='📋 복사';},1500);
+        btn.textContent='✓ 복사됨';setTimeout(()=>{btn.textContent='📋 복사';},1500);
       }).catch(()=>{
         const ta=document.createElement('textarea');
         ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
         document.body.appendChild(ta);ta.select();document.execCommand('copy');
         document.body.removeChild(ta);
-        btn.textContent='✓ 복사됨';
-        setTimeout(()=>{btn.textContent='📋 복사';},1500);
+        btn.textContent='✓ 복사됨';setTimeout(()=>{btn.textContent='📋 복사';},1500);
       });
     };
   });
-  ctx.tabs.forEach(({type})=>{
-    const ta=document.getElementById(`noteTa-${type}`);
-    if(!ta)return;
-    const preview=document.getElementById(`notePreview-${type}`);
-    // 미리보기 있으면 처음엔 textarea 숨김
-    if(preview && ta.value.trim()) ta.style.display='none';
-    // 미리보기 클릭 → 편집 모드
-    if(preview) preview.onclick=()=>{ preview.style.display='none'; ta.style.display=''; ta.focus(); };
+
+  // 메모 textarea + 저장 버튼 — photoKey 기반
+  document.querySelectorAll('[id^="noteTa-"]').forEach(ta=>{
+    const photoKey=ta.id.replace('noteTa-','');
+    const sportType=getSportType(photoKey);
+    const preview=document.getElementById(`notePreview-${photoKey}`);
+    if(preview&&ta.value.trim()) ta.style.display='none';
+    if(preview) preview.onclick=()=>{preview.style.display='none';ta.style.display='';ta.focus();};
     const updatePreview=(txt)=>{
       if(!preview) return;
-      if(txt.trim()){ preview.innerHTML=linkify(txt); preview.style.display=''; ta.style.display='none'; }
-      else { preview.style.display='none'; ta.style.display=''; }
+      if(txt.trim()){preview.innerHTML=linkify(txt);preview.style.display='';ta.style.display='none';}
+      else{preview.style.display='none';ta.style.display='';}
     };
-    ta.onblur=()=>{ saveNote(dk,type,ta.value); renderSlides(); updateMemoDelBtn(type); updatePreview(ta.value); };
+    ta.onblur=()=>{saveNote(dk,photoKey,ta.value);renderSlides();updateMemoDelBtn(photoKey);updatePreview(ta.value);};
     ta.onclick=e=>e.stopPropagation();
-    const saveBtn=document.querySelector(`[data-notesave="${type}"]`);
+    const saveBtn=document.querySelector(`[data-notesave="${photoKey}"]`);
     if(saveBtn) saveBtn.onclick=e=>{
       e.stopPropagation();
       const txt=ta.value;
-      saveNote(dk,type,txt);
-      updateMemoDelBtn(type);
-      // 미리보기 즉시 업데이트 (renderSlides 전에)
-      const preview2=document.getElementById(`notePreview-${type}`);
-      const ta2=document.getElementById(`noteTa-${type}`);
-      if(preview2){
-        if(txt.trim()){
-          preview2.innerHTML=linkify(txt);
-          preview2.style.display='';
-          if(ta2) ta2.style.display='none';
-        } else {
-          preview2.style.display='none';
-          if(ta2) ta2.style.display='';
-        }
-      }
-      renderSlides(); // 카드 📝 아이콘 업데이트
+      saveNote(dk,photoKey,txt);
+      updateMemoDelBtn(photoKey);
+      updatePreview(txt);
+      renderSlides();
     };
   });
 }
 
 function bindNoteActions(type){}
 
-function updateMemoDelBtn(type){
-  const delBtn=document.getElementById(`memoDelBtn-${type}`);
+function updateMemoDelBtn(photoKey){
+  const delBtn=document.getElementById(`memoDelBtn-${photoKey}`);
   if(!delBtn) return;
-  delBtn.style.display=getNote(ctx.dk,type)?'':'none';
+  delBtn.style.display=getNote(ctx.dk,photoKey)?'':'none';
 }
 
 // 특정 탭만 재렌더
