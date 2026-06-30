@@ -2250,7 +2250,7 @@ function buildPane(item){
 
   const selExtra=extras.find(e=>e.id===selId);
   const selOpt=isBase?baseOpt:(selExtra?.opt||'');
-  const selNote=isBase?(multi.base?.note||getNote(dk,type)):(selExtra?.note||'');
+  const selNote=isBase?(multi.base?.note||''):(selExtra?.note||'');
   const selDone=isBase?(multi.base?.done||getDone(dk,type)):(selExtra?.done||false);
   const selCustomOpt=customOpt[selId]||'';
   const displayName=selOpt||item.defaultName;
@@ -2420,7 +2420,7 @@ function bindPaneEvents(){
       if(selId==='base'){m.base=m.base||{};m.base.note=ta.value;}
       else{const ex=(m.extras||[]).find(e=>e.id===selId);if(ex)ex.note=ta.value;}
       saveMulti(dk,type,m);
-      if(selId==='base') saveNote(dk,type,ta.value); // 기존 호환
+      // 세부 기록(wib-note)과 메모(noteTa)는 서로 다른 필드 — 동기화하지 않음
     };
   });
 
