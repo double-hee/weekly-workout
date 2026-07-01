@@ -2868,7 +2868,7 @@ async function runBackgroundAnalysis(dk, type, photos){
       {text:`Extract workout data from this Garmin app screenshot and provide expert coaching analysis in Korean. Return ONLY a valid JSON object, no markdown, no explanation.
 
 Past workout history for comprehensive race prediction:
-${(()=>{const h=getPastAnalyses(dk,type);return h.length>0?JSON.stringify(h):'(no past records yet)';})()}
+${(()=>{const h=getPastAnalyses(dk,type).slice(0,30);return h.length>0?h.map(p=>`${p.date} ${p.activity_type||''} ${p.distance_km||''}km ${p.avg_pace||''} ${p.avg_hr||''}bpm`).join('\n'):'(no past records yet)';})()}
 
 JSON structure:
 {"activity_type":"","date":"","start_time":"","distance_km":0,"total_time":"","avg_pace":null,"avg_speed_kmh":null,"avg_hr":null,"max_hr":null,"calories":null,"cadence_avg":null,"elevation_gain":null,"splits":[{"label":"1km","pace":"M:SS","distance":"1.00km"}],"analysis":{"workout_type":"운동타입(LSD/템포런/인터벌/회복런 등)","intensity":"강도설명","body_effect":"신체효과 2-3문장","next_training":"다음훈련추천","comment":"총평 1-2문장","race_prediction":{"5k":"M:SS","10k":"M:SS","half":"H:MM:SS","full":"H:MM:SS"}}}
@@ -3131,14 +3131,24 @@ function openGarminAIOverlay(photos, dk, type, cachedResult){
   (async()=>{
     try{
       // blob URL 또는 dataURL을 base64로 변환
+      // API 전송용 압축: 800px / 0.7 품질 (저장용 1920px/0.85와 별도)
       const toBase64=async(src)=>{
-        if(src.startsWith('data:')) return src.split(',')[1];
-        const res=await fetch(src);
-        const blob=await res.blob();
-        return await new Promise(resolve=>{
-          const reader=new FileReader();
-          reader.onload=e=>resolve(e.target.result.split(',')[1]);
-          reader.readAsDataURL(blob);
+        return await new Promise((resolve,reject)=>{
+          const img=new Image();
+          img.onload=()=>{
+            const MAX=800;
+            let w=img.width, h=img.height;
+            if(w>MAX||h>MAX){
+              if(w>h){h=Math.round(h*MAX/w);w=MAX;}
+              else{w=Math.round(w*MAX/h);h=MAX;}
+            }
+            const canvas=document.createElement('canvas');
+            canvas.width=w; canvas.height=h;
+            canvas.getContext('2d').drawImage(img,0,0,w,h);
+            resolve(canvas.toDataURL('image/jpeg',0.7).split(',')[1]);
+          };
+          img.onerror=reject;
+          img.src=src;
         });
       };
       const base64Photos=await Promise.all(photos.map(toBase64));
@@ -3147,7 +3157,7 @@ function openGarminAIOverlay(photos, dk, type, cachedResult){
         {text:`Extract workout data from this Garmin app screenshot and provide expert coaching analysis in Korean. Return ONLY a valid JSON object, no markdown, no explanation.
 
 Past workout history for comprehensive race prediction:
-${(()=>{const h=getPastAnalyses(dk,type);return h.length>0?JSON.stringify(h):'(no past records yet)';})()}
+${(()=>{const h=getPastAnalyses(dk,type).slice(0,30);return h.length>0?h.map(p=>`${p.date} ${p.activity_type||''} ${p.distance_km||''}km ${p.avg_pace||''} ${p.avg_hr||''}bpm`).join('\n'):'(no past records yet)';})()}
 
 JSON structure:
 {"activity_type":"","date":"","start_time":"","distance_km":0,"total_time":"","avg_pace":null,"avg_speed_kmh":null,"avg_hr":null,"max_hr":null,"calories":null,"cadence_avg":null,"elevation_gain":null,"splits":[{"label":"1km","pace":"M:SS","distance":"1.00km"}],"analysis":{"workout_type":"운동타입(LSD/템포런/인터벌/회복런 등)","intensity":"강도설명","body_effect":"신체효과 2-3문장","next_training":"다음훈련추천","comment":"총평 1-2문장","race_prediction":{"5k":"M:SS","10k":"M:SS","half":"H:MM:SS","full":"H:MM:SS"}}}
@@ -3157,7 +3167,9 @@ For race_prediction: use ALL past workout history provided above for a comprehen
 
       const MODELS=['gemini-2.5-flash','gemini-2.5-flash-lite'];
       let text=null,lastErr='';
-      for(const model of MODELS){
+      for(let attempt=0;attempt<3;attempt++){
+        const model=attempt<2?MODELS[0]:MODELS[1];
+        if(attempt>0) await new Promise(r=>setTimeout(r,1000));
         try{
           const res=await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -3166,9 +3178,12 @@ For race_prediction: use ALL past workout history provided above for a comprehen
           );
           const d=await res.json();
           if(res.ok&&!d.error){text=d.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';break;}
+          const errCode=d.error?.code||res.status;
           lastErr=d.error?.message||`HTTP ${res.status}`;
-          if(lastErr.includes('429')||lastErr.includes('quota')) throw new Error('잠시 후 다시 시도해주세요.');
-        }catch(fe){if(fe.message.includes('다시')) throw fe; lastErr=fe.message;}
+          if(errCode!==429&&errCode!==503) break;
+        }catch(fe){
+          lastErr=fe.message;
+        }
       }
       if(!text) throw new Error(lastErr);
 
@@ -3184,9 +3199,20 @@ For race_prediction: use ALL past workout history provided above for a comprehen
       // Gemini 연결 버튼 (신규 분석 완료 후)
       openGarminAIOverlay(photos, dk, type, parsed);
     }catch(e){
+      const ss=document.getElementById('analysisSlideshow');
+      if(ss) ss.remove();
       const isKeyErr=e.message.includes('API key')||e.message.includes('401')||e.message.includes('403');
-      body.innerHTML=`<div style="background:rgba(251,113,133,0.1);border:1px solid rgba(251,113,133,0.3);border-radius:12px;padding:14px 16px;color:var(--rose);font-size:13px;">분석 실패: ${e.message}</div>
-      ${isKeyErr?`<button onclick="closeGarminAIOverlay();openGeminiKeyModal()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ API 키 다시 입력</button>`:''}`;
+      const is429=e.message.includes('429')||e.message.includes('quota')||e.message.includes('Resource');
+      body.innerHTML=`
+        <div style="background:rgba(251,113,133,0.1);border:1px solid rgba(251,113,133,0.3);border-radius:12px;padding:14px 16px;color:var(--rose);font-size:13px;margin-bottom:10px;">
+          분석 실패: ${is429?'API 사용량 초과예요. 잠시 후 다시 시도해주세요.':e.message}
+        </div>
+        <button onclick="openGarminAIOverlay(photos,dk,type,null)"
+          style="width:100%;padding:12px;border-radius:12px;border:none;background:rgba(255,255,255,0.08);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-bottom:8px;">
+          ↻ 다시 시도
+        </button>
+        ${isKeyErr?`<button onclick="closeGarminAIOverlay();openGeminiKeyModal()" style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ API 키 다시 입력</button>`:''}
+      `;
     }
   })();
 }
