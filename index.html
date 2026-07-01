@@ -2939,29 +2939,33 @@ function openGarminAIOverlay(photos, dk, type, cachedResult){
     const btnRow=document.createElement('div');
     btnRow.style.cssText='display:flex;gap:8px;margin-top:10px;';
 
-    // Gemini로 이어서 대화하기 버튼 (<a> 태그 직접 사용)
-    const r=cachedResult;
-    const summary=`[운동 분석 결과]\n`
-      +`날짜: ${r.date||''} / 종목: ${r.activity_type||''}\n`
-      +`거리: ${r.distance_km||''}km / 시간: ${r.total_time||''} / 페이스: ${r.avg_pace||''}\n`
-      +`심박: ${r.avg_hr||''}bpm / 칼로리: ${r.calories||''}kcal\n`
-      +`운동타입: ${r.analysis?.workout_type||''} / 강도: ${r.analysis?.intensity||''}\n`
-      +`레이스예측 - 5K:${r.analysis?.race_prediction?.['5k']||''} 10K:${r.analysis?.race_prediction?.['10k']||''} 하프:${r.analysis?.race_prediction?.half||''} 풀:${r.analysis?.race_prediction?.full||''}\n`
-      +`\n이 운동 데이터를 바탕으로 궁금한 점이 있어 대화하고 싶어.`;
-    const encoded=encodeURIComponent(summary);
-    const webUrl=`https://gemini.google.com/app?q=${encoded}`;
-
-    // <a> 태그를 버튼처럼 스타일링 — 브라우저가 사용자 제스처로 확실히 인식
-    const geminiBtn=document.createElement('a');
-    geminiBtn.href=webUrl;
-    geminiBtn.target='_self';
-    geminiBtn.rel='noopener noreferrer';
-    geminiBtn.onclick=(e)=>{
-      e.preventDefault();
-      location.href=webUrl;
+    // AI와 대화 버튼
+    const chatBtn=document.createElement('button');
+    chatBtn.innerHTML='✦ Gemini에서 계속';
+    chatBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(163,230,53,0.3);background:rgba(163,230,53,0.1);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:"Noto Sans KR",sans-serif;';
+    chatBtn.onclick=async ()=>{
+      // 사진을 File 객체로 변환해서 navigator.share로 Gemini 앱에 넘기기
+      const currentPhotos=await getPhotos(dk, type);
+      if(!currentPhotos.length){ alert('공유할 사진이 없어요. 먼저 가민 사진을 추가해주세요.'); return; }
+      try{
+        // base64 → Blob → File 변환
+        const files=await Promise.all(currentPhotos.map(async (src,i)=>{
+          const res=await fetch(src);
+          const blob=await res.blob();
+          return new File([blob], `garmin_${i+1}.jpg`, {type: blob.type||'image/jpeg'});
+        }));
+        if(!navigator.canShare||!navigator.canShare({files})){
+          alert('이 기기에서는 파일 공유가 지원되지 않아요.'); return;
+        }
+        await navigator.share({
+          files,
+          title: '가민 운동 기록',
+          text: `${cachedResult?.date||''} ${cachedResult?.activity_type||''} ${cachedResult?.distance_km||''}km - Gemini AI 코치에게 분석 요청`,
+        });
+      }catch(e){
+        if(e.name!=='AbortError') alert(`공유 오류: ${e.message}`);
+      }
     };
-    geminiBtn.innerHTML='<img src="https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06.svg" width="14" height="14" style="vertical-align:middle;margin-right:4px;border-radius:2px;">Gemini에서 계속';
-    geminiBtn.style.cssText='flex:1;padding:10px;border-radius:10px;border:1.5px solid rgba(100,149,237,0.4);background:rgba(100,149,237,0.08);color:#8ab4f8;font-size:12px;font-weight:700;cursor:pointer;font-family:"Noto Sans KR",sans-serif;text-decoration:none;display:flex;align-items:center;justify-content:center;';
 
     // 재분석 버튼
     const reBtn=document.createElement('button');
@@ -2969,7 +2973,7 @@ function openGarminAIOverlay(photos, dk, type, cachedResult){
     reBtn.style.cssText='padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--subtext);font-size:12px;font-weight:700;cursor:pointer;font-family:"Noto Sans KR",sans-serif;white-space:nowrap;';
     reBtn.onclick=()=>{ saveAnalysis(dk,type,null); localStorage.removeItem(`${GARMIN_ANALYSIS_PREFIX}${dk}_${type}`); openGarminAIOverlay(photos,dk,type,null); };
 
-    btnRow.appendChild(geminiBtn);
+    btnRow.appendChild(chatBtn);
     btnRow.appendChild(reBtn);
     body.appendChild(btnRow);
     return;
@@ -3048,6 +3052,157 @@ For race_prediction: use ALL past workout history provided above for a comprehen
       ${isKeyErr?`<button onclick="closeGarminAIOverlay();openGeminiKeyModal()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ API 키 다시 입력</button>`:''}`;
     }
   })();
+}
+
+/* ══ AI 채팅 (분석 결과 기반) ══ */
+function openAIChat(analysisResult, dk, type){
+  let el=document.getElementById('aiChatOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='aiChatOverlay';
+    el.style.cssText='display:none;position:fixed;inset:0;z-index:950;background:var(--bg);flex-direction:column;font-family:"Noto Sans KR",sans-serif;';
+    document.body.appendChild(el);
+  }
+
+  // 시스템 컨텍스트: 분석 결과 요약
+  const r=analysisResult;
+  // 최근 20개만 컨텍스트에 포함 (토큰 과부하 방지)
+  const pastData=getPastAnalyses(dk, type);
+  const pastRecent=pastData.slice(0,20);
+  const pastSummary=pastRecent.length>0
+    ? pastRecent.map(p=>`${p.date} ${p.activity_type||''} ${p.distance_km||''}km 페이스:${p.avg_pace||''} 심박:${p.avg_hr||''} 타입:${p.workout_type||''}`).join('\n')
+    : '(기록 없음)';
+
+  const systemCtx=`전담 러닝 코치. 아래 데이터로 맞춤 코칭.
+
+[최근 운동 기록 ${pastRecent.length}개]
+${pastSummary}
+
+[오늘 운동]
+날짜:${r.date||''} 종목:${r.activity_type||''} 거리:${r.distance_km||''}km 시간:${r.total_time||''} 페이스:${r.avg_pace||''} 심박:${r.avg_hr||''}bpm 칼로리:${r.calories||''}kcal
+타입:${r.analysis?.workout_type||''} 강도:${r.analysis?.intensity||''}
+레이스예측 5K:${r.analysis?.race_prediction?.['5k']||''} 10K:${r.analysis?.race_prediction?.['10k']||''} 하프:${r.analysis?.race_prediction?.half||''} 풀:${r.analysis?.race_prediction?.full||''}
+
+한국어로 친절하고 전문적으로 답변.`;
+
+  const chatHistory=[]; // {role:'user'|'model', parts:[{text}]}
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+      <button id="aiChatBack" style="background:none;border:none;color:var(--subtext);font-size:20px;cursor:pointer;padding:4px;">←</button>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff;">✦ AI 코치와 대화</div>
+        <div style="font-size:11px;color:var(--subtext);">${r.date||''} ${r.activity_type||''} ${r.distance_km||''}km · 누적 ${pastData.length}개 기록 반영</div>
+      </div>
+    </div>
+    <div id="aiChatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;"></div>
+    <div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:8px;flex-shrink:0;">
+      <textarea id="aiChatInput" placeholder="궁금한 점을 물어보세요..." rows="1"
+        style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;padding:10px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;resize:none;min-height:42px;max-height:120px;line-height:1.5;"></textarea>
+      <button id="aiChatSend" style="padding:10px 16px;border-radius:12px;border:none;background:var(--lime);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0;align-self:flex-end;">전송</button>
+    </div>`;
+
+  el.style.display='flex';
+  if(window.pushPopup) pushPopup('aiChatOverlay',()=>closeAIChat());
+
+  const messagesEl=document.getElementById('aiChatMessages');
+  const inputEl=document.getElementById('aiChatInput');
+  const sendBtn=document.getElementById('aiChatSend');
+
+  document.getElementById('aiChatBack').onclick=closeAIChat;
+
+  // 입력창 자동 높이
+  inputEl.oninput=()=>{inputEl.style.height='auto';inputEl.style.height=Math.min(inputEl.scrollHeight,120)+'px';};
+  inputEl.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}};
+  sendBtn.onclick=sendMessage;
+
+  // 환영 메시지
+  appendMessage('model', pastData.length>0
+    ? `안녕하세요! 최근 1년간 ${pastData.length}개의 운동 기록을 바탕으로 맞춤 코칭을 드릴게요. 오늘 운동에 대해 궁금한 점이나 훈련 계획, 레이스 준비 등 무엇이든 물어보세요 🏃`
+    : `안녕하세요! 오늘 운동 데이터를 분석했어요. 궁금한 점이 있으시면 무엇이든 물어보세요 🏃`);
+
+  async function sendMessage(){
+    const text=inputEl.value.trim();
+    if(!text) return;
+    const apiKey=localStorage.getItem('garmin_analyzer_gemini_key');
+    if(!apiKey){alert('Gemini API 키가 필요해요. 설정에서 입력해주세요.');return;}
+
+    inputEl.value=''; inputEl.style.height='42px';
+    appendMessage('user', text);
+    sendBtn.disabled=true;
+
+    // 로딩 버블
+    const loadingId='chat_loading_'+Date.now();
+    appendMessage('model','...', loadingId);
+
+    chatHistory.push({role:'user', parts:[{text}]});
+
+    try{
+      const messages=[
+        {role:'user', parts:[{text:systemCtx+'\n\n첫 번째 질문: '+text}]},
+        ...chatHistory.slice(1).map(h=>({role:h.role,parts:h.parts}))
+      ];
+      // 히스토리가 있으면 멀티턴으로
+      const contents=chatHistory.length===1
+        ?[{role:'user',parts:[{text:systemCtx+'\n\n'+text}]}]
+        :[{role:'user',parts:[{text:systemCtx}]},{role:'model',parts:[{text:'알겠습니다. 질문해주세요!'}]},...chatHistory];
+
+      // 503/429 시 폴백 모델로 재시도
+      const CHAT_MODELS=['gemini-2.5-flash','gemini-2.5-flash-lite'];
+      let res, d, lastErr;
+      for(let attempt=0; attempt<4; attempt++){
+        const model=attempt<2?CHAT_MODELS[0]:CHAT_MODELS[1];
+        if(attempt>0){
+          updateMessage(loadingId, `재시도 중... (${attempt}/3)`);
+          await new Promise(r=>setTimeout(r, 1000*attempt));
+        }
+        res=await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({contents,generationConfig:{maxOutputTokens:4096}})}
+        );
+        d=await res.json();
+        if(res.ok && !d.error) break;
+        lastErr=d.error?.message||`HTTP ${res.status}`;
+        if(res.status!==503 && res.status!==429) break;
+      }
+      if(!res.ok||d.error) throw new Error(lastErr||d.error?.message||`HTTP ${res.status}`);
+      const reply=d.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'응답이 없어요.';
+      chatHistory.push({role:'model',parts:[{text:reply}]});
+      updateMessage(loadingId, reply);
+    }catch(e){
+      updateMessage(loadingId, `오류: ${e.message}`);
+      chatHistory.pop();
+    }
+    sendBtn.disabled=false;
+    inputEl.focus();
+  }
+
+  function appendMessage(role, text, id=''){
+    const div=document.createElement('div');
+    if(id) div.id=id;
+    div.style.cssText=`display:flex;${role==='user'?'justify-content:flex-end;':''}`;
+    const bubble=document.createElement('div');
+    bubble.style.cssText=`max-width:82%;padding:10px 14px;border-radius:${role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px'};font-size:13px;line-height:1.7;
+      background:${role==='user'?'rgba(163,230,53,0.2)':'rgba(255,255,255,0.07)'};
+      color:${role==='user'?'var(--lime)':'var(--text)'};`;
+    bubble.textContent=text;
+    div.appendChild(bubble);
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop=messagesEl.scrollHeight;
+  }
+
+  function updateMessage(id, text){
+    const el=document.getElementById(id);
+    if(el) el.querySelector('div').textContent=text;
+    messagesEl.scrollTop=messagesEl.scrollHeight;
+  }
+}
+
+function closeAIChat(){
+  const el=document.getElementById('aiChatOverlay');
+  if(el) el.style.display='none';
+  if(window.popPopup) popPopup('aiChatOverlay');
 }
 
 function closeGarminAIOverlay(){
