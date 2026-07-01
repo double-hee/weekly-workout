@@ -1670,11 +1670,13 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
     const chipLabel=actual.length?actual[0]:baseOpt;
     const tColor=WORKOUT_TYPES[item.type]?.color||'var(--text)';
     const tRgb=WORKOUT_TYPES[item.type]?.rgb||'255,255,255';
+    const hasPhoto=getPhotosCached(dk,item.type).length>0;
     const memoIcon=hasMemo?`<span style="font-size:11px;margin-left:4px;opacity:0.6;">📝</span>`:'';
+    const photoIcon=hasPhoto?`<span style="font-size:11px;margin-left:2px;opacity:0.6;">🖼️</span>`:'';
     actHTML+=`<div class="activity" data-type="${item.type}" style="align-items:center;">
       <span class="activity-icon">${item.icon}</span>
       <div class="activity-body" style="display:flex;align-items:center;gap:6px;min-width:0;">
-        <div class="activity-title" style="flex-shrink:0;">${typeName(item.type)}${memoIcon}</div>
+        <div class="activity-title" style="flex-shrink:0;">${typeName(item.type)}${memoIcon}${photoIcon}</div>
         <span class="card-chip card-chip-${item.type}" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${esc(chipLabel)}</span>
       </div>
       <button class="main-done-btn" data-donetype="${item.type}" data-donedk="${dk}"
