@@ -2425,7 +2425,7 @@ function buildPane(item){
       ${photos.length>0?`
       <div class="photo-share-toolbar" id="photoShareToolbar-${photoKey}">
         <button class="photo-share-start-btn" data-sharetype="${photoKey}">↑ 공유</button>
-        <button class="photo-ai-btn" data-aitype="${photoKey}" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ AI분석</button>
+        ${type==='run'?`<button class="photo-ai-btn" data-aitype="${photoKey}" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:var(--lime);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✦ AI분석</button>`:''}
       </div>`:''}
     </div>
     <div id="photoSelectBar-${photoKey}" style="display:none;margin-bottom:8px;" class="photo-select-bar">
@@ -2883,6 +2883,8 @@ function repairJSON(text){
 }
 
 async function runBackgroundAnalysis(dk, type, photos){
+  const baseType=type.split(':')[0];
+  if(baseType!=='run') return; // AI 분석은 러닝 사진에만 적용
   const apiKey = localStorage.getItem('garmin_analyzer_gemini_key');
   if(!apiKey || !photos.length) return;
 
