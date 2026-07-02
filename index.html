@@ -1439,6 +1439,26 @@ function getPhotosCached(dk,type){
   return photoCache[`${dk}:${type}`]||[];
 }
 
+// 사진 존재 여부 전체 인덱스 (메인 카드 아이콘용 — 모달을 열지 않아도 앱 로드시 전체 사진 유무를 알 수 있게)
+let photoKeySet=new Set();
+async function loadAllPhotoKeys(){
+  try{
+    const db=await openIDB();
+    const keys=await new Promise(res=>{
+      const req=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).getAllKeys();
+      req.onsuccess=()=>res(req.result||[]);
+      req.onerror=()=>res([]);
+    });
+    photoKeySet=new Set(keys);
+  }catch(e){ /* 인덱스 로드 실패 시 기존 캐시 기반 방식으로 폴백 */ }
+}
+function hasPhotoSync(dk,type){
+  const key=`${dk}:${type}`;
+  // 이번 세션에서 실제 로드된 캐시가 있으면 그걸 우선 사용(가장 최신 상태)
+  if(photoCache[key]!==undefined) return photoCache[key].length>0;
+  return photoKeySet.has(key);
+}
+
 /* ══ UTILS ══ */
 function getWeekStart(d){const r=new Date(d);r.setHours(0,0,0,0);r.setDate(r.getDate()-r.getDay());return r;}
 function getWeekNum(d){const s=new Date(d.getFullYear(),0,1);return Math.ceil(((d-s)/86400000+s.getDay()+1)/7);}
@@ -1672,7 +1692,7 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
     const chipLabel=actual.length?actual[0]:baseOpt;
     const tColor=WORKOUT_TYPES[item.type]?.color||'var(--text)';
     const tRgb=WORKOUT_TYPES[item.type]?.rgb||'255,255,255';
-    const hasPhoto=getPhotosCached(dk,item.type).length>0;
+    const hasPhoto=hasPhotoSync(dk,item.type);
     const memoIcon=hasMemo?`<span style="font-size:11px;margin-left:4px;opacity:0.6;">📝</span>`:'';
     const photoIcon=hasPhoto?`<span style="font-size:11px;margin-left:2px;opacity:0.6;">🖼️</span>`:'';
     // 기본 운동 개요(계획 텍스트) — 있으면 카드 본문에 흰색 텍스트로 표시
@@ -2604,7 +2624,9 @@ function bindPaneEvents(){
           if(loaded===toLoad.length){
             await savePhotos(dk,photoKey,photos);
             photoCache[`${dk}:${photoKey}`]=photos;
+            if(photos.length>0) photoKeySet.add(`${dk}:${photoKey}`);
             refreshPane(sportType);
+            renderSlides(); // 메인 카드의 사진 아이콘 즉시 반영
             if(skipped>0) showToast(`${toLoad.length}장 추가됐어요. (${skipped}장 초과로 제외)`);
             runBackgroundAnalysis(dk, photoKey, photos);
           }
@@ -2626,7 +2648,9 @@ function bindPaneEvents(){
         photos.splice(idx,1);
         await savePhotos(dk,photoKey,photos);
         photoCache[`${dk}:${photoKey}`]=photos;
+        if(photos.length===0) photoKeySet.delete(`${dk}:${photoKey}`);
         refreshPane(sportType);
+        renderSlides(); // 메인 카드의 사진 아이콘 즉시 반영
       });
     };
   });
@@ -6464,6 +6488,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   });
 })();
 renderSlides();
+loadAllPhotoKeys().then(()=>renderSlides()); // 기존에 저장된 사진들의 아이콘도 로드 즉시 반영
 (function tick(){const m=new Date();m.setHours(24,0,0,0);setTimeout(()=>{renderSlides();tick();},m-new Date());})();
 </script>
 
