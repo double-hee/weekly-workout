@@ -271,6 +271,8 @@
     .activity-body{flex:1;min-width:0;}
     .activity-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.2;}
     .activity-sub{font-size:11px;color:var(--subtext);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .activity-overview{font-size:12px;font-weight:500;color:#fff;margin-top:3px;line-height:1.4;white-space:normal;word-break:break-word;}
+    .extra-count-badge{font-size:11px;font-weight:800;color:var(--text);opacity:0.85;flex-shrink:0;margin-left:1px;}
     .act-tag{font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 7px;border-radius:12px;flex-shrink:0;}
     .act-tag-rest{background:rgba(107,107,107,0.13);color:var(--muted);}
     /* done dot */
@@ -1673,11 +1675,21 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
     const hasPhoto=getPhotosCached(dk,item.type).length>0;
     const memoIcon=hasMemo?`<span style="font-size:11px;margin-left:4px;opacity:0.6;">📝</span>`:'';
     const photoIcon=hasPhoto?`<span style="font-size:11px;margin-left:2px;opacity:0.6;">🖼️</span>`:'';
-    actHTML+=`<div class="activity" data-type="${item.type}" style="align-items:center;">
+    // 기본 운동 개요(계획 텍스트) — 있으면 카드 본문에 흰색 텍스트로 표시
+    const overviewNote=(multi?.base?.note||'').trim();
+    const overviewHTML=overviewNote?`<div class="activity-overview">${esc(overviewNote)}</div>`:'';
+    // 기본 운동 외 추가 항목 개수 — +N 배지로 표시
+    const extraCount=multi?.extras?.length||0;
+    const extraBadge=extraCount>0?`<span class="extra-count-badge">+${extraCount}</span>`:'';
+    actHTML+=`<div class="activity" data-type="${item.type}" style="align-items:${overviewNote?'flex-start':'center'};">
       <span class="activity-icon">${item.icon}</span>
-      <div class="activity-body" style="display:flex;align-items:center;gap:6px;min-width:0;">
-        <div class="activity-title" style="flex-shrink:0;">${typeName(item.type)}${memoIcon}${photoIcon}</div>
-        <span class="card-chip card-chip-${item.type}" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${esc(chipLabel)}</span>
+      <div class="activity-body" style="min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+          <div class="activity-title" style="flex-shrink:0;">${typeName(item.type)}${memoIcon}${photoIcon}</div>
+          <span class="card-chip card-chip-${item.type}" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${esc(chipLabel)}</span>
+          ${extraBadge}
+        </div>
+        ${overviewHTML}
       </div>
       <button class="main-done-btn" data-donetype="${item.type}" data-donedk="${dk}"
         style="flex-shrink:0;padding:4px 10px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;
@@ -2345,7 +2357,7 @@ function buildPane(item){
       <!-- 계획 타이틀 + 대회링크/완료체크 -->
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="m-section-label" style="margin-bottom:0;">계획</span>
+          <span class="m-section-label" style="margin-bottom:0;">개요</span>
           ${isLocked?`<button class="race-plan-link" data-raceid="${raceInfo.id}"
             style="background:rgba(163,230,53,0.08);border:1.5px solid rgba(163,230,53,0.3);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--lime);font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">
             🔗 대회 정보 수정
@@ -2472,6 +2484,7 @@ function bindPaneEvents(){
       else{const ex=(m.extras||[]).find(e=>e.id===selId);if(ex)ex.note=ta.value;}
       saveMulti(dk,type,m);
       // 세부 기록(wib-note)과 메모(noteTa)는 서로 다른 필드 — 동기화하지 않음
+      renderSlides(); // 메인 카드의 개요 텍스트 즉시 반영
     };
   });
 
@@ -3941,16 +3954,16 @@ function closePicker(){document.getElementById('pickerBackdrop').classList.remov
   el.innerHTML=`<div class="search-overlay" id="searchOverlay">
   <div class="search-panel">
     <div class="search-head">
-      <div class="search-title">🔍 메모 검색</div>
+      <div class="search-title">🔍 검색</div>
       <button class="search-close" id="searchClose">✕</button>
     </div>
     <div class="search-input-wrap">
-      <input class="search-input" id="searchInput" placeholder="검색어를 입력하세요...">
+      <input class="search-input" id="searchInput" placeholder="메모, 개요, 대회 검색...">
       <button class="search-clear" id="searchClear">✕</button>
     </div>
     <div class="search-count" id="searchCount"></div>
     <div class="search-results" id="searchResults">
-      <div class="search-empty">검색어를 입력하면 메모를 찾아드릴게요.</div>
+      <div class="search-empty">검색어를 입력하면 메모, 개요, 대회를 찾아드릴게요.</div>
     </div>
   </div>
 </div>`;
@@ -5019,17 +5032,15 @@ function raceExportXLSX(year){
 // 대회 1개 텍스트 공유 (참가여부 제외)
 function raceShareOne(race){
   const t = raceGetSports(race.sport);
-  const d = new Date(race.date);
-  const days = ['일','월','화','수','목','금','토'];
   const lines = [
     `🏅 ${race.name}`,
-    `📅 ${raceFmtFull(race.date)} (${days[d.getDay()]}요일)`,
+    `📅 ${raceFmtFull(race.date)}`,
     `🏃 ${t.name}${race.event ? ' · ' + race.event : ''}`,
   ];
   if(race.memo) lines.push(`📝 ${race.memo}`);
   const text = lines.join('\n');
   if(navigator.share){
-    navigator.share({ title: race.name, text }).catch(()=>{});
+    navigator.share({ text }).catch(()=>{});
   } else {
     navigator.clipboard.writeText(text)
       .then(()=>showToast('📋 클립보드에 복사됐어요!'))
@@ -5896,7 +5907,7 @@ function openSearch(){
   document.getElementById('searchInput').focus();
   document.getElementById('searchInput').value='';
   document.getElementById('searchCount').textContent='';
-  document.getElementById('searchResults').innerHTML='<div class="search-empty">검색어를 입력하면 메모를 찾아드릴게요.</div>';
+  document.getElementById('searchResults').innerHTML='<div class="search-empty">검색어를 입력하면 메모, 개요, 대회를 찾아드릴게요.</div>';
   document.getElementById('searchClear').classList.remove('visible');
 }
 function closeSearch(){
@@ -5910,14 +5921,14 @@ function runSearch(query){
   document.getElementById('searchClear').classList.toggle('visible',q.length>0);
   if(!q){
     document.getElementById('searchCount').textContent='';
-    document.getElementById('searchResults').innerHTML='<div class="search-empty">검색어를 입력하면 메모를 찾아드릴게요.</div>';
+    document.getElementById('searchResults').innerHTML='<div class="search-empty">검색어를 입력하면 메모, 개요, 대회를 찾아드릴게요.</div>';
     return;
   }
 
-  // NOTES_KEY에서 모든 메모 검색
-  const notes=load(NOTES_KEY);
   const results=[];
 
+  // 1) NOTES_KEY — 메모 검색
+  const notes=load(NOTES_KEY);
   for(const [key,text] of Object.entries(notes)){
     if(!text||!text.toLowerCase().includes(q)) continue;
     // key 형식: "2026-06-10:golf" 또는 "2026-06-10:run" 등
@@ -5927,8 +5938,40 @@ function runSearch(query){
     const type=parts.slice(1).join(':'); // extra 타입 포함 대비
     const [y,m,d]=dk.split('-').map(Number);
     if(!y||!m||!d) continue;
-    results.push({dk,type,text,date:new Date(y,m-1,d)});
+    results.push({source:'note',sourceLabel:'메모',dk,type,text,date:new Date(y,m-1,d)});
   }
+
+  // 2) MULTI_KEY — 개요(계획) 검색 (base + extras)
+  const multiData=(()=>{try{return JSON.parse(localStorage.getItem(MULTI_KEY)||'{}');}catch{return{};}})();
+  for(const [key,val] of Object.entries(multiData)){
+    const parts=key.split(':');
+    if(parts.length<2) continue;
+    const dk=parts[0];
+    const type=parts.slice(1).join(':');
+    const [y,m,d]=dk.split('-').map(Number);
+    if(!y||!m||!d) continue;
+    const date=new Date(y,m-1,d);
+    const baseNote=(val?.base?.note||'').trim();
+    if(baseNote&&baseNote.toLowerCase().includes(q)){
+      results.push({source:'overview',sourceLabel:'개요',dk,type,text:baseNote,date});
+    }
+    (val?.extras||[]).forEach(ex=>{
+      const exNote=(ex.note||'').trim();
+      if(exNote&&exNote.toLowerCase().includes(q)){
+        results.push({source:'overview',sourceLabel:'개요',dk,type,selId:ex.id,text:exNote,date});
+      }
+    });
+  }
+
+  // 3) RACE_STORAGE_KEY — 대회 검색 (이름 + 메모)
+  raceLoad().forEach(r=>{
+    const nameMatch=(r.name||'').toLowerCase().includes(q);
+    const memoMatch=(r.memo||'').toLowerCase().includes(q);
+    if(!nameMatch&&!memoMatch) return;
+    const raceDate=r.date?new Date(r.date):new Date();
+    const text=[r.name,r.memo].filter(Boolean).join(' — ');
+    results.push({source:'race',sourceLabel:'대회',raceId:r.id,text,date:raceDate});
+  });
 
   // 최신순 정렬
   results.sort((a,b)=>b.date-a.date);
@@ -5942,24 +5985,30 @@ function runSearch(query){
     return;
   }
 
-  countEl.textContent=`${results.length}개의 메모를 찾았어요`;
+  countEl.textContent=`${results.length}개의 결과를 찾았어요`;
 
   resultsEl.innerHTML=results.map(r=>{
     const dateStr=`${r.date.getFullYear()}년 ${r.date.getMonth()+1}월 ${r.date.getDate()}일 (${DAY_KO[r.date.getDay()]})`;
-    const typeLabel=typeName(r.type.split(':')[0]);
-    const typeIcon_=typeIcon(r.type.split(':')[0]);
-    const color=typeColor(r.type.split(':')[0]);
+    let typeLabel,typeIcon_,color;
+    if(r.source==='race'){
+      typeLabel='대회';typeIcon_='🏅';color='var(--amber)';
+    } else {
+      const baseType=r.type.split(':')[0];
+      typeLabel=`${typeName(baseType)} · ${r.sourceLabel}`;
+      typeIcon_=typeIcon(baseType);
+      color=typeColor(baseType);
+    }
     // 검색어 하이라이트
     const highlighted=esc(r.text).replace(
       new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
       m=>`<mark>${m}</mark>`
     );
-    return`<div class="search-result-card" data-dk="${r.dk}" data-type="${r.type}" data-text="${esc(r.text)}">
+    return`<div class="search-result-card" data-source="${r.source}" data-dk="${r.dk||''}" data-type="${r.type||''}" data-selid="${r.selId||''}" data-raceid="${r.raceId||''}" data-text="${esc(r.text)}">
       <div class="search-result-header">
         <span class="search-result-date">${dateStr}</span>
         <div style="display:flex;align-items:center;gap:6px;">
           <span class="search-result-type" style="background:${color}22;color:${color}">${typeIcon_} ${typeLabel}</span>
-          <button class="search-copy-btn" data-text="${esc(r.text)}" title="메모 복사">📋</button>
+          <button class="search-copy-btn" data-text="${esc(r.text)}" title="복사">📋</button>
         </div>
       </div>
       <div class="search-result-memo">${highlighted}</div>
@@ -5988,6 +6037,12 @@ function runSearch(query){
   });
   resultsEl.querySelectorAll('.search-result-card').forEach(card=>{
     card.onclick=()=>{
+      const source=card.dataset.source;
+      if(source==='race'){
+        closeSearch();
+        openRaceInfoFromModal(card.dataset.raceid);
+        return;
+      }
       const dk=card.dataset.dk;
       const type=card.dataset.type.split(':')[0];
       const [y,m,d]=dk.split('-').map(Number);
@@ -6000,6 +6055,18 @@ function runSearch(query){
       const dateLabel=fmtFull(targetDate);
       const offset=weekOffset(curWeek);
       openModal(dayIndex,dk,dateLabel,type,offset);
+      // 개요 검색 결과가 extra 항목이면 해당 항목 탭으로 이동
+      const selId=card.dataset.selid;
+      if(selId){
+        setTimeout(()=>{
+          if(ctx&&ctx.activeType===type){
+            ctx._selId=ctx._selId||{};
+            ctx._selId[type]=selId;
+            renderModalTabs();
+            renderModalPanes();
+          }
+        },0);
+      }
     };
   });
 }
