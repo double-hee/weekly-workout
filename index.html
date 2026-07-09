@@ -768,23 +768,26 @@
 
   // ── 자동 동기화 ──
   async function gdSyncDown(forceDownload=false) {
-    if(!gdToken||gdSyncing) return;
+    if(!gdToken) return 'no-token';
+    if(gdSyncing) return 'busy';
     gdSyncing=true; gdSetStatus('syncing');
+    let result='error';
     try {
       const file = await gdFindFile(GD_DATA_FILE);
-      if(!file){gdSetStatus('ok');gdSyncing=false;return;}
+      if(!file){gdSetStatus('ok');gdSyncing=false;return 'no-file';}
       // 수정시간 비교 — forceDownload면 항상 다운로드, 아니면 스킵 가능
       if(!forceDownload){
         const driveTs = new Date(file.modifiedTime).getTime();
         const localTs = parseInt(localStorage.getItem(GD_SYNC_TS)||'0');
-        if(driveTs <= localTs){gdSetStatus('ok');gdSyncing=false;return;}
+        if(driveTs <= localTs){gdSetStatus('ok');gdSyncing=false;return 'skipped';}
       }
       const r = await gdFetch(`drive/v3/files/${file.id}?alt=media`);
-      if(!r.ok){gdSetStatus('error');gdSyncing=false;return;}
+      if(!r.ok){gdSetStatus('error');gdSyncing=false;return 'error';}
       const data = await r.json();
       Object.entries(data).forEach(([k,v])=>_lsSet(k,v));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
+      result='restored';
       if(document.readyState === 'complete'){
         if(typeof raceApplyToCards==='function') raceApplyToCards(true);
         if(window.renderSlides) window.renderSlides();
@@ -794,9 +797,43 @@
           if(window.renderSlides) window.renderSlides();
         }, {once:true});
       }
-    } catch(e){gdSetStatus('error');}
+    } catch(e){gdSetStatus('error'); result='error';}
     gdSyncing=false;
+    return result;
   }
+  // 현재 로그인된 Google 계정 이메일 확인 (계정 헷갈림 진단용)
+  async function gdGetAccountEmail(){
+    if(!gdToken) return null;
+    try{
+      const r=await gdFetch('drive/v3/about?fields=user');
+      if(!r.ok) return null;
+      const d=await r.json();
+      return d.user?.emailAddress||null;
+    }catch(e){ return null; }
+  }
+  // 수동 복원 버튼용 — 명확한 결과 메시지로 진단을 돕는다
+  async function gdManualRestore(){
+    if(!gdToken){ gdLogin(gdManualRestore); return; }
+    if(typeof showLoading==='function') showLoading('Drive에서 데이터 확인 중...');
+    const status = await gdSyncDown(true);
+    if(typeof gdRebuildPhotoManifestFromDrive==='function'){
+      try{ await gdRebuildPhotoManifestFromDrive(true); }catch(e){}
+    }
+    const email = await gdGetAccountEmail();
+    if(typeof hideLoading==='function') hideLoading();
+    const emailNote = email?`\n(계정: ${email})`:'';
+    if(status==='restored'){
+      showBigToast(`✅ Drive에서 데이터를 복원했어요!${emailNote}`);
+    } else if(status==='no-file'){
+      showBigToast(`⚠️ 이 계정에 저장된 백업이 없어요.${emailNote}\n다른 계정으로 로그인했는지 확인해보세요.`);
+    } else if(status==='skipped'){
+      showBigToast(`ℹ️ 이미 최신 상태예요.${emailNote}`);
+    } else {
+      showBigToast('❌ 복원 중 오류가 발생했어요. 다시 시도해주세요.');
+    }
+  }
+  window.gdManualRestore=gdManualRestore;
+  window.gdGetAccountEmail=gdGetAccountEmail;
   // ── 통합 업로드 (모든 상황에서 동일하게 동작) ──
   async function gdUpload() {
     if(!gdToken) return;
@@ -849,7 +886,7 @@
     if(gdToken && mode==='drive' && SYNC_KEYS.includes(k)) {
       gdDirty=true;
       clearTimeout(gdSaveTimer);
-      gdSaveTimer = setTimeout(gdSyncUp, 2000);
+      gdSaveTimer = setTimeout(gdSyncUp, 700);
     }
   };
 
@@ -863,6 +900,11 @@
     try {
       const payload={};
       SYNC_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)payload[k]=v;});
+      // 안전장치: 로컬 데이터가 통째로 비어있으면(앱 사용중 브라우저 데이터 삭제 등)
+      // 절대 Drive의 기존 백업을 빈 값으로 덮어쓰지 않는다. 이 함수는 gdUpload()와 달리
+      // 페이지 종료 시점에 즉시 실행돼야 해서 Drive 값과 병합할 여유가 없으므로,
+      // "로컬이 비정상적으로 비어있다"는 신호 자체를 업로드 중단 조건으로 사용한다.
+      if(Object.keys(payload).length===0) return;
       const jsonStr=JSON.stringify(payload);
       // fileId가 이미 캐시돼 있으면 바로 업로드, 없으면 multipart로 신규 생성
       const cachedId=localStorage.getItem('gd_file_id');
@@ -893,6 +935,13 @@ ${jsonStr}
   window.addEventListener('beforeunload', gdSyncUpSync);
   // iOS Safari: focus 잃을 때도 저장 시도 (앱 전환 시)
   window.addEventListener('blur', ()=>{ if(gdDirty) gdSyncUpSync(); });
+  // 안전망: 안드로이드 등에서 "최근 앱에서 스와이프로 강제 종료"하면 visibilitychange/pagehide가
+  // 제때 실행되지 못하고 예약된 동기화(debounce)가 통째로 날아갈 수 있다.
+  // → 앱이 켜져있는 동안 주기적으로 대기중인 변경사항이 있으면 바로 업로드해서
+  //   "지연 시간(디바운스) 중에 강제종료" 시나리오의 유실 위험을 최소화한다.
+  setInterval(()=>{
+    if(gdDirty && !gdSyncing){ clearTimeout(gdSaveTimer); gdSyncUp(); }
+  }, 5000);
 
   // ── 사진 업로드/다운로드 ──
   async function gdUploadAllPhotos() {
@@ -959,35 +1008,35 @@ ${jsonStr}
     return `${dk}:${rest}`;
   }
 
-  let gdPhotoDirtyKeys=new Set();
+  let gdPhotoQueue=new Map(); // key(dk:type) → 그 시점의 사진 배열 스냅샷
   let gdPhotoQueueTimer=null;
-  // 사진이 추가/삭제될 때 호출 — 즉시 올리지 않고 4초 대기 후 그 항목만 업로드(연속 조작 시 낭비 방지)
-  function gdQueuePhotoBackup(dk,type){
+  // 사진이 추가/삭제될 때 호출 — 그 순간의 사진 배열(photos)을 그대로 스냅샷으로 들고 있다가
+  // 4초가 아닌 1.5초 대기 후 업로드(연속 조작 시 낭비 방지). 나중에 IndexedDB를 다시 읽지
+  // 않기 때문에, 그 사이 브라우저 데이터가 지워져도 "빈 걸로 착각해서 Drive 백업을 지우는"
+  // 사고가 나지 않는다 — 스냅샷은 메모리에 있어서 저장소 삭제의 영향을 받지 않는다.
+  function gdQueuePhotoBackup(dk,type,photos){
     if(!gdToken) return;
     const mode=localStorage.getItem('gd_mode')||'drive';
     if(mode!=='drive') return; // 로컬 백업 모드면 자동 업로드 안함
-    gdPhotoDirtyKeys.add(`${dk}:${type}`);
+    gdPhotoQueue.set(`${dk}:${type}`, photos.slice());
     clearTimeout(gdPhotoQueueTimer);
-    gdPhotoQueueTimer=setTimeout(gdProcessPhotoQueue, 4000);
+    gdPhotoQueueTimer=setTimeout(gdProcessPhotoQueue, 1500);
   }
   async function gdProcessPhotoQueue(){
-    if(!gdToken || gdPhotoDirtyKeys.size===0) return;
-    const keys=[...gdPhotoDirtyKeys];
-    gdPhotoDirtyKeys.clear();
-    for(const key of keys){
-      try{ await gdSyncPhotoKey(key); }catch(e){}
+    if(!gdToken || gdPhotoQueue.size===0) return;
+    const entries=[...gdPhotoQueue.entries()];
+    gdPhotoQueue.clear();
+    for(const [key,photos] of entries){
+      try{ await gdSyncPhotoKey(key,photos); }catch(e){}
       await new Promise(r=>setTimeout(r,200)); // 연속 업로드 사이 짧은 텀(네트워크 부담 완화)
     }
   }
-  // 사진 배열 하나(하루+종목)만 Drive에 업로드 — 보통 사진 몇 장이라 매우 빠르게 끝난다
-  async function gdSyncPhotoKey(key){
+  // 사진 배열 하나(하루+종목)만 Drive에 업로드 — 스냅샷을 그대로 신뢰하고 사용(재조회 없음)
+  async function gdSyncPhotoKey(key,photos){
     if(!gdToken) return;
-    const idx=key.indexOf(':');
-    const dk=key.slice(0,idx), type=key.slice(idx+1);
-    const photos=await getPhotos(dk,type);
     const manifest=gdGetPhotoManifest();
     if(!photos.length){
-      // 사진을 전부 지운 경우 → Drive의 백업 파일도 정리
+      // 사진을 전부 지운 경우(실제 사용자 조작으로 확인된 스냅샷 기준) → Drive의 백업 파일도 정리
       const fileId=manifest[key]?.fileId;
       if(fileId){ try{ await gdFetch(`drive/v3/files/${fileId}`,{method:'DELETE'}); }catch(e){} }
       delete manifest[key];
@@ -1017,30 +1066,28 @@ ${jsonStr}
     }
   }
   // 페이지 종료 시 대기중인 사진 업로드도 놓치지 않도록 keepalive로 즉시 전송
+  // (스냅샷을 메모리에 이미 들고 있으므로 재조회 없이 바로 fetch — 더 빠르고, 삭제 영향도 안 받음)
   function gdPhotoQueueFlushSync(){
-    if(!gdToken || gdPhotoDirtyKeys.size===0) return;
+    if(!gdToken || gdPhotoQueue.size===0) return;
     clearTimeout(gdPhotoQueueTimer);
-    const keys=[...gdPhotoDirtyKeys];
-    gdPhotoDirtyKeys.clear();
-    keys.forEach(async key=>{
-      try{
-        const idx=key.indexOf(':');
-        const dk=key.slice(0,idx), type=key.slice(idx+1);
-        const photos=await getPhotos(dk,type);
-        if(!photos.length) return;
-        const manifest=gdGetPhotoManifest();
-        const fileId=manifest[key]?.fileId;
-        const jsonStr=JSON.stringify(photos);
-        if(fileId){
-          fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-            {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
-        }
-        // fileId가 없는 신규 항목은 다음 접속 때 debounce 큐에서 정상 업로드됨(keepalive multipart 생성은 생략)
-      }catch(e){}
+    const entries=[...gdPhotoQueue.entries()];
+    gdPhotoQueue.clear();
+    const manifest=gdGetPhotoManifest();
+    entries.forEach(([key,photos])=>{
+      if(!photos.length) return; // 삭제 케이스는 다음 접속 때 정상 큐 처리로 넘김(keepalive로는 DELETE 생략)
+      const fileId=manifest[key]?.fileId;
+      if(!fileId) return; // 신규 파일 생성은 다음 접속 때 정상 큐에서 처리
+      const jsonStr=JSON.stringify(photos);
+      fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+        {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
     });
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden') gdPhotoQueueFlushSync();});
   window.addEventListener('pagehide', gdPhotoQueueFlushSync);
+  // 안전망: 텍스트 데이터와 동일한 이유로, 대기중인 사진 백업도 주기적으로 강제 처리
+  setInterval(()=>{
+    if(gdPhotoQueue.size>0){ clearTimeout(gdPhotoQueueTimer); gdProcessPhotoQueue(); }
+  }, 5000);
 
   // 로컬에 사진이 없는데(브라우저 데이터 삭제 등) Drive엔 백업이 있으면 그 항목만 자동으로 복원
   async function getPhotosWithRestore(dk,type){
@@ -1066,9 +1113,9 @@ ${jsonStr}
   }
   // 로컬 저장소 전체가 초기화된 경우(기기 변경, 데이터 삭제 등) 대비 —
   // Drive의 사진 백업 파일 목록을 훑어서 manifest를 재구성 → 메인 카드 사진 아이콘도 다시 살아남
-  async function gdRebuildPhotoManifestFromDrive(){
+  async function gdRebuildPhotoManifestFromDrive(force=false){
     if(!gdToken) return;
-    if(Object.keys(gdGetPhotoManifest()).length>0) return; // 이미 manifest 있으면 스킵(빠른 시작 우선)
+    if(!force && Object.keys(gdGetPhotoManifest()).length>0) return; // 이미 manifest 있으면 스킵(빠른 시작 우선)
     try{
       let pageToken='', newManifest={};
       do{
@@ -1099,6 +1146,7 @@ ${jsonStr}
 
   // window exports
   window.gdLogin=gdLogin;
+  window.gdUpload=gdUpload;
   window.gdSyncDown=gdSyncDown;
   window.gdUploadAllPhotos=gdUploadAllPhotos;
   window.gdDownloadAllPhotos=gdDownloadAllPhotos;
@@ -1379,6 +1427,7 @@ ${jsonStr}
         </div>
       </div>
       <button class="gd-action-btn gd-save-btn" id="gdLoginBtn" style="margin-bottom:8px;">🔑 Google로 로그인</button>
+      <button class="gd-action-btn gd-load-btn" id="gdRestoreBtn" style="margin-bottom:8px;width:100%;">☁️↓ Drive에서 데이터 받기 (복원)</button>
       <div style="font-size:10.5px;color:var(--subtext);margin-bottom:6px;line-height:1.4;">사진은 추가/삭제할 때마다 자동으로 Drive에 백업돼요. 아래 버튼은 전체를 한번에 올리거나 받을 때만 사용하세요.</div>
       <div style="display:flex;gap:6px;">
         <button class="gd-action-btn gd-load-btn" id="gdPhotoUploadBtn" style="flex:1;padding:8px;font-size:11px;">📸↑ 전체 올리기</button>
@@ -2835,7 +2884,7 @@ function bindPaneEvents(){
             if(photos.length>0) photoKeySet.add(`${dk}:${photoKey}`);
             refreshPane(sportType);
             renderSlides(); // 메인 카드의 사진 아이콘 즉시 반영
-            if(typeof gdQueuePhotoBackup==='function') gdQueuePhotoBackup(dk,photoKey); // Drive 자동 백업 예약(증분)
+            if(typeof gdQueuePhotoBackup==='function') gdQueuePhotoBackup(dk,photoKey,photos); // Drive 자동 백업 예약(증분, 스냅샷 전달)
             if(skipped>0) showToast(`${toLoad.length}장 추가됐어요. (${skipped}장 초과로 제외)`);
             runBackgroundAnalysis(dk, photoKey, photos);
           }
@@ -2860,7 +2909,7 @@ function bindPaneEvents(){
         if(photos.length===0) photoKeySet.delete(`${dk}:${photoKey}`);
         refreshPane(sportType);
         renderSlides(); // 메인 카드의 사진 아이콘 즉시 반영
-        if(typeof gdQueuePhotoBackup==='function') gdQueuePhotoBackup(dk,photoKey); // Drive 자동 백업 예약(증분)
+        if(typeof gdQueuePhotoBackup==='function') gdQueuePhotoBackup(dk,photoKey,photos); // Drive 자동 백업 예약(증분, 스냅샷 전달)
       });
     };
   });
@@ -5703,6 +5752,10 @@ function openSettings(){
       clean.weeks.forEach(wk=>wk.forEach(day=>day.forEach(item=>{delete item._w;delete item._d;})));
       saveUserDefault(clean);
       saveRoutine(clean);
+      // 온보딩 직후 앱을 바로 닫는 경우가 많아 디바운스(700ms)조차 위험 — 루틴 저장은 즉시 강제 업로드
+      if(window.gdToken && window.gdUpload && (localStorage.getItem('gd_mode')||'drive')==='drive'){
+        window.gdUpload();
+      }
       renderSlides();
       closeSettings();
       // 온보딩 중이었으면 완료 단계로 이어가기
@@ -6604,6 +6657,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
     gdSetMode(savedMode);
   });
   safe('gdCloseBtn',        ()=>overlay.classList.remove('open'));
+  safe('gdRestoreBtn', ()=>{ if(window.gdManualRestore) window.gdManualRestore(); });
   safe('gdLoginBtn', ()=>{
     if(window.gdToken){
       document.getElementById('gdOverlay').classList.remove('open');
