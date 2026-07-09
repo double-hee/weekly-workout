@@ -643,6 +643,33 @@
     setTimeout(() => iframe.remove(), 10000);
   }
 
+  // ── 조용한 로그인 시도 (로그인 정보 자체가 사라진 경우 대비) ──
+  // login_hint 없이 prompt=none으로 시도 — 브라우저에 Google 계정 세션이 남아있으면
+  // 팝업/리디렉션 없이 토큰을 다시 받아올 수 있다. (브라우저 데이터 삭제로
+  // 앱의 localStorage/토큰만 날아갔을 뿐 구글 로그인 세션 자체는 남아있는 경우가 많음)
+  function gdSilentLoginAttempt(timeoutMs=6000){
+    return new Promise(resolve=>{
+      let done=false;
+      const finish=ok=>{ if(done) return; done=true; resolve(ok); };
+      try{
+        const iframe=document.createElement('iframe');
+        iframe.style.display='none';
+        iframe.src=`https://accounts.google.com/o/oauth2/v2/auth`
+          + `?client_id=${GD_CLIENT_ID}`
+          + `&redirect_uri=${encodeURIComponent(GD_REDIRECT)}`
+          + `&response_type=token`
+          + `&scope=${encodeURIComponent(GD_SCOPE)}`
+          + `&prompt=none`;
+        document.body.appendChild(iframe);
+        const startTs=Date.now();
+        const poll=setInterval(()=>{
+          if(gdRestoreToken()){ clearInterval(poll); iframe.remove(); finish(true); }
+          else if(Date.now()-startTs>timeoutMs){ clearInterval(poll); iframe.remove(); finish(false); }
+        },300);
+      }catch(e){ finish(false); }
+    });
+  }
+
   // ── OAuth 로그인 (리디렉션) ──
   function isInAppBrowser(){
     const ua = navigator.userAgent || '';
@@ -1127,11 +1154,19 @@ ${jsonStr}
       sessionStorage.setItem('gd_session', '1');
       if(isFirstOpen){
         gdUpload().then(()=>gdSyncDown(true)).then(()=>{
+          const restoredRoutine=!!localStorage.getItem('workout_routine_v2');
           if(localStorage.getItem('onboard_pending')){
             localStorage.removeItem('onboard_pending');
-            onbMode='drive';
-            startOnboarding();
-            setTimeout(()=>onbGoTo(3), 100);
+            if(restoredRoutine){
+              // Drive에 이미 데이터가 있었음 — 새로 설정할 필요 없이 바로 복원된 화면 표시
+              if(typeof raceApplyToCards==='function') raceApplyToCards(true);
+              if(window.renderSlides) window.renderSlides();
+              if(typeof showBigToast==='function') showBigToast('☁️ Drive에서 기존 데이터를 복원했어요!');
+            } else {
+              onbMode='drive';
+              startOnboarding();
+              setTimeout(()=>onbGoTo(3), 100);
+            }
           } else {
             checkFirstRun();
           }
@@ -1149,8 +1184,26 @@ ${jsonStr}
       }, 400);
       return;
     }
-    // 최초 실행: 온보딩이 로그인 안내까지 담당
-    checkFirstRun();
+    // 로컬 데이터(루틴)도 없고 토큰도 없음 — 신규 사용자인지, 브라우저 데이터 삭제로
+    // 기존 사용자의 로그인 정보만 날아간 것인지 구분이 안 되므로, 온보딩(설정화면)을
+    // 띄우기 전에 조용한 Drive 로그인을 먼저 시도해서 기존 데이터가 있는지 확인한다.
+    if(typeof showLoading==='function') showLoading('기존 데이터 확인 중...');
+    gdSilentLoginAttempt().then(async ok=>{
+      if(!ok){ if(typeof hideLoading==='function') hideLoading(); checkFirstRun(); return; } // 세션 없음 → 신규 사용자로 간주, 기존처럼 온보딩
+      const btn=document.getElementById('gdLoginBtn');
+      if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
+      if(typeof gdRebuildPhotoManifestFromDrive==='function') gdRebuildPhotoManifestFromDrive();
+      await gdSyncDown(true);
+      if(typeof hideLoading==='function') hideLoading();
+      const restored=!!localStorage.getItem('workout_routine_v2');
+      if(restored){
+        if(typeof raceApplyToCards==='function') raceApplyToCards(true);
+        if(window.renderSlides) window.renderSlides();
+        if(typeof showBigToast==='function') showBigToast('☁️ Drive에서 기존 데이터를 복원했어요!');
+      } else {
+        checkFirstRun(); // 로그인은 됐지만 Drive에도 저장된 데이터가 없음 → 진짜 신규 사용자
+      }
+    });
   });
   </script>
 </head>
