@@ -4848,9 +4848,9 @@ function renderRaceBody(){
         <span class="race-summary-item" style="color:var(--amber)">검토 중 ${maybeCount}개</span>
       </div>
       <div class="race-year-btns">
-        <button class="race-year-action" id="raceImportBtn" style="background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">📥 시트 가져오기</button>
+        <button class="race-year-action" id="raceImportBtn" style="background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">📥 가져오기</button>
         <div style="position:relative;display:inline-block;">
-          <button class="race-year-action race-year-save" data-savemenu="${raceSelectedYear||'all'}">💾 저장하기</button>
+          <button class="race-year-action race-year-save" data-savemenu="${raceSelectedYear||'all'}">💾 저장</button>
           <div id="raceSaveMenu" style="display:none;position:absolute;right:0;top:36px;z-index:100;background:var(--surface);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
             <button style="display:block;width:100%;padding:8px 12px;border:none;background:none;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;border-radius:8px;text-align:left;font-family:'Noto Sans KR',sans-serif;" data-savehtml="${raceSelectedYear||'all'}">🌐 HTML 파일</button>
             <button style="display:block;width:100%;padding:8px 12px;border:none;background:none;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;border-radius:8px;text-align:left;font-family:'Noto Sans KR',sans-serif;" data-savecsv="${raceSelectedYear||'all'}">📊 CSV 파일</button>
@@ -5254,6 +5254,7 @@ function closeRaceForm(){
 }
 
 /* ══ 구글시트에서 대회 일정 가져오기 ══ */
+const RACE_IMPORT_DEFAULT_URL='https://docs.google.com/spreadsheets/d/1LmDq2zfCe7UYn0p5WRaPiSWzNA0sBK1O/edit?usp=drivesdk&ouid=113321396445486434041&rtpof=true&sd=true';
 let raceImportRows=[]; // 파싱된 원본 행(2차원 배열)
 let raceImportEntries=[]; // 추출된 대회 후보 목록
 let raceImportChecked={}; // idx -> boolean
@@ -5366,6 +5367,7 @@ function raceImportClose(){
 function raceImportRenderInput(){
   const sheet=document.getElementById('raceImportSheet');
   const savedName=localStorage.getItem('race_import_myname')||'';
+  const savedUrl=localStorage.getItem('race_import_sheet_url')||RACE_IMPORT_DEFAULT_URL;
   sheet.innerHTML=`
     <div class="race-form-head">
       <div class="race-form-title">📥 시트에서 대회 가져오기</div>
@@ -5373,8 +5375,8 @@ function raceImportRenderInput(){
     </div>
     <div style="margin-bottom:14px;">
       <label class="race-form-label">구글시트 링크</label>
-      <input id="riUrl" class="race-form-input" placeholder="https://docs.google.com/spreadsheets/d/...">
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">시트 공유 설정이 "링크가 있는 모든 사용자 - 뷰어"여야 자동으로 불러올 수 있어요.<br>안 되면 아래 "직접 붙여넣기"를 이용해주세요.</div>
+      <input id="riUrl" class="race-form-input" placeholder="https://docs.google.com/spreadsheets/d/..." value="${esc(savedUrl)}">
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">시트 공유 설정이 "링크가 있는 모든 사용자 - 뷰어"여야 자동으로 불러올 수 있어요.<br>안 되면 아래 "직접 붙여넣기"를 이용해주세요. 여기서 바꾼 링크는 다음에도 기본값으로 저장돼요.</div>
     </div>
     <div style="margin-bottom:14px;">
       <label class="race-form-label">내 이름 <span style="color:var(--muted);font-weight:400;">(참가자 명단에서 나를 찾아 자동 체크)</span></label>
@@ -5398,6 +5400,7 @@ function raceImportRenderInput(){
     const url=document.getElementById('riUrl').value.trim();
     const status=document.getElementById('riStatus');
     if(!url){ status.textContent='⚠️ 링크를 입력해주세요.'; status.style.color='var(--rose)'; return; }
+    localStorage.setItem('race_import_sheet_url', url); // 바꾼 링크를 다음 기본값으로 저장
     status.textContent='⏳ 불러오는 중...'; status.style.color='var(--subtext)';
     try{
       const text=await raceImportFetchSheet(url);
@@ -5504,7 +5507,7 @@ function raceImportRenderPreview(){
         name: en.name,
         date: en.date,
         event: en.event,
-        participate: mine ? 'yes' : 'maybe',
+        participate: mine ? 'yes' : 'no',
         memo: en.participants ? `참가: ${en.participants}` : (en.memo||'')
       });
     });
