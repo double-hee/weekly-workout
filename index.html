@@ -1270,6 +1270,10 @@ ${jsonStr}
 <div class="race-form-overlay" id="raceFormOverlay">
   <div class="race-form-sheet" id="raceFormSheet"></div>
 </div>
+<!-- 구글시트에서 대회 일정 가져오기 -->
+<div class="race-form-overlay" id="raceImportOverlay">
+  <div class="race-form-sheet" id="raceImportSheet"></div>
+</div>
 <!-- 삭제 확인 -->
 <div class="race-confirm-overlay" id="raceConfirmOverlay">
   <div class="race-confirm-box">
@@ -4844,6 +4848,7 @@ function renderRaceBody(){
         <span class="race-summary-item" style="color:var(--amber)">검토 중 ${maybeCount}개</span>
       </div>
       <div class="race-year-btns">
+        <button class="race-year-action" id="raceImportBtn" style="background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">📥 시트 가져오기</button>
         <div style="position:relative;display:inline-block;">
           <button class="race-year-action race-year-save" data-savemenu="${raceSelectedYear||'all'}">💾 저장하기</button>
           <div id="raceSaveMenu" style="display:none;position:absolute;right:0;top:36px;z-index:100;background:var(--surface);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
@@ -5005,6 +5010,8 @@ function renderRaceBody(){
   });
   const addBtn=document.getElementById('raceAddBtn');
   if(addBtn) addBtn.onclick=()=>openRaceForm(null);
+  const importBtn=document.getElementById('raceImportBtn');
+  if(importBtn) importBtn.onclick=()=>raceImportOpen();
 }
 
 // 대회 카드 클릭 시 액션 시트 (대회일로 이동 / 수정하기)
@@ -5244,6 +5251,269 @@ function openRaceForm(race, refreshModalAfterSave=false, _originalRace=null){
 function closeRaceForm(){
   document.getElementById('raceFormOverlay').classList.remove('open');
   if(window.popPopup) window.popPopup('raceFormOverlay');
+}
+
+/* ══ 구글시트에서 대회 일정 가져오기 ══ */
+let raceImportRows=[]; // 파싱된 원본 행(2차원 배열)
+let raceImportEntries=[]; // 추출된 대회 후보 목록
+let raceImportChecked={}; // idx -> boolean
+
+// 구글시트 URL에서 파일 ID 추출
+function raceImportExtractSheetId(url){
+  const m=(url||'').match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m?m[1]:null;
+}
+
+// 구글시트 CSV export를 시도 (공개 공유된 시트만 가능 — gviz/tq 엔드포인트는 CORS 허용됨)
+async function raceImportFetchSheet(url){
+  const id=raceImportExtractSheetId(url);
+  if(!id) throw new Error('구글시트 링크에서 파일 ID를 찾을 수 없어요.');
+  const csvUrl=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
+  const res=await fetch(csvUrl);
+  if(!res.ok) throw new Error('시트를 불러올 수 없어요. (링크 공유 설정을 "링크가 있는 모든 사용자"로 바꿔주세요)');
+  return await res.text();
+}
+
+// CSV/TSV 텍스트 → 2차원 배열 파싱 (따옴표로 감싼 콤마 처리 포함)
+function raceImportParseTable(text){
+  const delim = text.split('\n')[0].includes('\t') && !text.split('\n')[0].includes(',') ? '\t' : ',';
+  const rows=[];
+  let row=[], field='', inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], next=text[i+1];
+    if(inQuotes){
+      if(c==='"' && next==='"'){ field+='"'; i++; }
+      else if(c==='"'){ inQuotes=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===delim){ row.push(field); field=''; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+  }
+  if(field.length>0||row.length>0){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+// "SIO 러닝크루 대회 일정" 형식 파싱: 헤더 행(대회명/일시/종목/이름/비고)을 찾아
+// 그 아래 데이터를 병합셀 규칙(연도·대회명·일시는 빈칸이면 이전 값 유지)에 맞춰 추출
+function raceImportExtractEntries(rows){
+  let headerRowIdx=-1, dateCol=-1, eventCol=-1, participantCol=-1, memoCol=-1;
+  for(let r=0;r<rows.length;r++){
+    const row=rows[r];
+    const iDate=row.findIndex(c=>(c||'').trim()==='일시');
+    const iEvent=row.findIndex(c=>(c||'').trim()==='종목');
+    if(iDate>=0 && iEvent>=0){
+      headerRowIdx=r; dateCol=iDate; eventCol=iEvent;
+      participantCol=row.findIndex(c=>(c||'').trim()==='이름');
+      memoCol=row.findIndex(c=>(c||'').trim()==='비고');
+      break;
+    }
+  }
+  if(headerRowIdx<0) throw new Error('시트에서 "일시"/"종목" 헤더를 찾지 못했어요. 형식이 다른 시트인 것 같아요.');
+  // "대회명" 헤더 셀은 연도+대회명 두 칸에 걸친 병합 셀이라 텍스트를 직접 검색하면 열 위치가 어긋난다.
+  // 단일 칸 헤더인 "일시" 기준 상대 위치(대회명은 바로 왼쪽, 연도는 그 왼쪽)로 찾는 게 더 안정적이다.
+  const nameCol = dateCol-1;
+  const yearCol = dateCol-2;
+
+  let curYear=String(new Date().getFullYear()), curName='', curDate='';
+  const entries=[];
+  for(let r=headerRowIdx+1;r<rows.length;r++){
+    const row=rows[r];
+    const yearCell=(yearCol>=0?row[yearCol]:'')?.trim()||'';
+    const nameCell=(nameCol>=0?row[nameCol]:'')?.trim()||'';
+    const dateCell=(dateCol>=0?row[dateCol]:'')?.trim()||'';
+    const eventCell=(eventCol>=0?row[eventCol]:'')?.trim()||'';
+    const participantCell=(participantCol>=0?row[participantCol]:'')?.trim()||'';
+    const memoCell=(memoCol>=0?row[memoCol]:'')?.trim()||'';
+
+    const yearMatch=yearCell.match(/(\d{4})/);
+    if(yearMatch) curYear=yearMatch[1];
+    if(nameCell) curName=nameCell;
+    if(dateCell) curDate=dateCell;
+
+    if(!eventCell) continue; // 종목이 없으면 데이터 행이 아님(빈 행 등)
+    if(!curName || !curDate) continue; // 대회명/날짜를 아직 못 찾았으면 스킵
+
+    const dm=curDate.match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
+    if(!dm) continue;
+    const mm=String(dm[1]).padStart(2,'0'), dd=String(dm[2]).padStart(2,'0');
+    const iso=`${curYear}-${mm}-${dd}`;
+    if(isNaN(new Date(iso).getTime())) continue;
+
+    entries.push({
+      name:curName, date:iso, event:eventCell,
+      participants:participantCell, memo:memoCell
+    });
+  }
+  return entries;
+}
+
+function raceImportOpen(){
+  addonDropdownOpen=false; applyAddonDropdownState();
+  raceImportRows=[]; raceImportEntries=[]; raceImportChecked={};
+  raceImportRenderInput();
+  document.getElementById('raceImportOverlay').classList.add('open');
+  if(window.pushPopup) window.pushPopup('raceImportOverlay', ()=>raceImportClose());
+}
+function raceImportClose(){
+  document.getElementById('raceImportOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('raceImportOverlay');
+}
+
+function raceImportRenderInput(){
+  const sheet=document.getElementById('raceImportSheet');
+  const savedName=localStorage.getItem('race_import_myname')||'';
+  sheet.innerHTML=`
+    <div class="race-form-head">
+      <div class="race-form-title">📥 시트에서 대회 가져오기</div>
+      <button class="race-head-btn" id="riClose">✕</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">구글시트 링크</label>
+      <input id="riUrl" class="race-form-input" placeholder="https://docs.google.com/spreadsheets/d/...">
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">시트 공유 설정이 "링크가 있는 모든 사용자 - 뷰어"여야 자동으로 불러올 수 있어요.<br>안 되면 아래 "직접 붙여넣기"를 이용해주세요.</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="race-form-label">내 이름 <span style="color:var(--muted);font-weight:400;">(참가자 명단에서 나를 찾아 자동 체크)</span></label>
+      <input id="riName" class="race-form-input" placeholder="예: 홍길동" value="${esc(savedName)}">
+    </div>
+    <button class="race-save-btn" id="riFetchBtn" style="background:var(--lime);color:#0A130A;margin-bottom:10px;">🔗 링크에서 불러오기</button>
+    <button class="race-save-btn" id="riPasteToggle" style="background:rgba(255,255,255,0.06);color:var(--subtext);border:1px solid rgba(255,255,255,0.1);margin-bottom:6px;">📋 대신 직접 붙여넣기</button>
+    <div id="riPasteWrap" style="display:none;margin-top:10px;">
+      <label class="race-form-label">시트 내용 붙여넣기 <span style="color:var(--muted);font-weight:400;">(구글시트에서 표 영역 복사 후 붙여넣기)</span></label>
+      <textarea id="riPasteArea" class="race-form-input" style="resize:none;line-height:1.6;min-height:120px;" placeholder="구글시트에서 헤더 행(대회명/일시/종목/이름/비고 포함)부터 표 전체를 복사해서 붙여넣으세요"></textarea>
+      <button class="race-save-btn" id="riPasteParseBtn" style="background:var(--lime);color:#0A130A;margin-top:10px;">붙여넣은 내용 분석</button>
+    </div>
+    <div id="riStatus" style="font-size:12px;color:var(--subtext);margin-top:10px;min-height:16px;"></div>
+  `;
+  document.getElementById('riClose').onclick=()=>raceImportClose();
+  document.getElementById('riPasteToggle').onclick=()=>{
+    const wrap=document.getElementById('riPasteWrap');
+    wrap.style.display = wrap.style.display==='none' ? 'block' : 'none';
+  };
+  document.getElementById('riFetchBtn').onclick=async ()=>{
+    const url=document.getElementById('riUrl').value.trim();
+    const status=document.getElementById('riStatus');
+    if(!url){ status.textContent='⚠️ 링크를 입력해주세요.'; status.style.color='var(--rose)'; return; }
+    status.textContent='⏳ 불러오는 중...'; status.style.color='var(--subtext)';
+    try{
+      const text=await raceImportFetchSheet(url);
+      raceImportProcessText(text);
+    }catch(e){
+      status.textContent='❌ '+e.message;
+      status.style.color='var(--rose)';
+    }
+  };
+  document.getElementById('riPasteParseBtn').onclick=()=>{
+    const text=document.getElementById('riPasteArea').value;
+    const status=document.getElementById('riStatus');
+    if(!text.trim()){ status.textContent='⚠️ 붙여넣은 내용이 없어요.'; status.style.color='var(--rose)'; return; }
+    raceImportProcessText(text);
+  };
+}
+
+function raceImportProcessText(text){
+  const status=document.getElementById('riStatus');
+  const myName=document.getElementById('riName').value.trim();
+  if(myName) localStorage.setItem('race_import_myname', myName);
+  try{
+    const rows=raceImportParseTable(text);
+    const entries=raceImportExtractEntries(rows);
+    if(!entries.length){
+      if(status){ status.textContent='⚠️ 인식된 대회 정보가 없어요.'; status.style.color='var(--rose)'; }
+      return;
+    }
+    raceImportEntries=entries;
+    const existing=raceLoad();
+    raceImportChecked={};
+    entries.forEach((en,idx)=>{
+      const dup=existing.some(r=>r.name===en.name && r.date===en.date && r.event===en.event);
+      const mine = myName && en.participants.split(',').map(s=>s.trim()).includes(myName);
+      raceImportChecked[idx] = !dup && (!!myName ? mine : true);
+    });
+    raceImportRenderPreview();
+  }catch(e){
+    if(status){ status.textContent='❌ '+e.message; status.style.color='var(--rose)'; }
+  }
+}
+
+function raceImportRenderPreview(){
+  const sheet=document.getElementById('raceImportSheet');
+  const existing=raceLoad();
+  const myName=document.getElementById('riName')?.value?.trim() || localStorage.getItem('race_import_myname') || '';
+
+  const rowsHTML = raceImportEntries.map((en,idx)=>{
+    const dup=existing.some(r=>r.name===en.name && r.date===en.date && r.event===en.event);
+    const mine = myName && en.participants.split(',').map(s=>s.trim()).includes(myName);
+    const checked = raceImportChecked[idx];
+    return `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);margin-bottom:6px;opacity:${dup?'0.5':'1'};">
+        <input type="checkbox" data-riidx="${idx}" ${checked?'checked':''} ${dup?'disabled':''} style="margin-top:3px;flex-shrink:0;width:16px;height:16px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-weight:700;color:var(--text);font-size:13px;">${esc(en.name)}</span>
+            <span style="font-size:11px;color:var(--lime);background:rgba(163,230,53,0.12);padding:1px 6px;border-radius:6px;">${esc(en.event)}</span>
+            ${mine?`<span style="font-size:11px;color:var(--amber);">⭐ 내 이름 있음</span>`:''}
+            ${dup?`<span style="font-size:11px;color:var(--muted);">이미 있음</span>`:''}
+          </div>
+          <div style="font-size:11px;color:var(--subtext);margin-top:2px;">${raceFmtFull(en.date)}</div>
+          ${en.participants?`<div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;">참가: ${esc(en.participants)}</div>`:''}
+        </div>
+      </label>`;
+  }).join('');
+
+  sheet.innerHTML=`
+    <div class="race-form-head">
+      <div class="race-form-title">📥 가져올 대회 선택</div>
+      <button class="race-head-btn" id="riClose2">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button id="riSelectAll" style="flex:1;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--subtext);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 선택</button>
+      <button id="riSelectNone" style="flex:1;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--subtext);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 해제</button>
+    </div>
+    <div style="max-height:50vh;overflow-y:auto;margin-bottom:14px;">${rowsHTML}</div>
+    <div style="display:flex;gap:8px;">
+      <button class="race-save-btn" id="riBack" style="flex:1;background:rgba(255,255,255,0.06);color:var(--subtext);border:1px solid rgba(255,255,255,0.1);">뒤로</button>
+      <button class="race-save-btn" id="riConfirm" style="flex:2;background:var(--lime);color:#0A130A;">선택한 대회 추가하기</button>
+    </div>
+  `;
+  document.getElementById('riClose2').onclick=()=>raceImportClose();
+  document.getElementById('riBack').onclick=()=>raceImportRenderInput();
+  sheet.querySelectorAll('[data-riidx]').forEach(cb=>{
+    cb.onchange=()=>{ raceImportChecked[cb.dataset.riidx]=cb.checked; };
+  });
+  document.getElementById('riSelectAll').onclick=()=>{
+    sheet.querySelectorAll('[data-riidx]:not(:disabled)').forEach(cb=>{ cb.checked=true; raceImportChecked[cb.dataset.riidx]=true; });
+  };
+  document.getElementById('riSelectNone').onclick=()=>{
+    sheet.querySelectorAll('[data-riidx]').forEach(cb=>{ cb.checked=false; raceImportChecked[cb.dataset.riidx]=false; });
+  };
+  document.getElementById('riConfirm').onclick=()=>{
+    const myName=document.getElementById('riName')?.value?.trim() || localStorage.getItem('race_import_myname') || '';
+    const toAdd=raceImportEntries.filter((en,idx)=>raceImportChecked[idx]);
+    if(!toAdd.length){ raceImportClose(); return; }
+    const list=raceLoad();
+    toAdd.forEach(en=>{
+      const mine = myName && en.participants.split(',').map(s=>s.trim()).includes(myName);
+      list.push({
+        id: 'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        sport:'run',
+        name: en.name,
+        date: en.date,
+        event: en.event,
+        participate: mine ? 'yes' : 'maybe',
+        memo: en.participants ? `참가: ${en.participants}` : (en.memo||'')
+      });
+    });
+    raceSave(list);
+    raceApplyToCards();
+    raceImportClose();
+    renderRaceBody();
+    if(typeof showToast==='function') showToast(`✅ 대회 ${toAdd.length}개를 추가했어요!`);
+  };
 }
 
 // 저장하기 (HTML 다운로드)
