@@ -1042,7 +1042,7 @@ ${jsonStr}
     showLoading('사진 수집 중...');
     try {
       await gdEnsureFreshToken();
-      const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
+      const db=await openIDB();
       const all=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly');const st=tx.objectStore('photos');const result={};const cr=st.openCursor();cr.onsuccess=e=>{const cursor=e.target.result;if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result);};cr.onerror=rej;});
       const keys=Object.keys(all).filter(k=>Array.isArray(all[k]) && all[k].length>0);
       dlog(`gdUploadAllPhotos: 로컬 IndexedDB에서 찾은 항목 수=${keys.length} (전체 키=${Object.keys(all).length})`);
@@ -1088,7 +1088,7 @@ ${jsonStr}
         return {restored:0,failed:0};
       }
       if(showUI) showLoading(`사진 다운로드 중... (0/${keys.length})`,true);
-      const db=await new Promise((res,rej)=>{const req=indexedDB.open('workout_photos_db',1);req.onsuccess=e=>res(e.target.result);req.onerror=rej;});
+      const db=await openIDB();
       let done=0, restored=0, failed=0, surfaced=0;
       for(const key of keys){
         try{
@@ -4709,7 +4709,7 @@ function importData(file){
 async function exportPhotos(){
   showLoading('사진 수집 중...');
   try {
-    const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
+    const db=await openIDB();
     const all=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly');const st=tx.objectStore('photos');const result={};const cr=st.openCursor();cr.onsuccess=e=>{const cursor=e.target.result;if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result);};cr.onerror=rej;});
     const keys=Object.keys(all);
     if(!keys.length){hideLoading();showBigToast('⚠️ 저장된 사진이 없어요.');return;}
@@ -4728,7 +4728,7 @@ async function importPhotos(file){
     try {
       const obj=JSON.parse(e.target.result);
       const photos=obj.photos||obj;
-      const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e2=>res(e2.target.result);r.onerror=rej;});
+      const db=await openIDB();
       await new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');const st=tx.objectStore('photos');Object.entries(photos).forEach(([k,v])=>st.put(v,k));tx.oncomplete=res;tx.onerror=rej;});
       hideLoading();
       showBigToast(`✅ 사진 ${Object.keys(photos).length}개 항목 가져오기 완료!`);
