@@ -919,8 +919,10 @@
   async function gdUpload() {
     dlog('gdUpload 시작');
     if(!gdToken) return;
+    if(gdSyncing){ dlog('gdUpload: 이미 진행중인 업로드가 있어 건너뜀'); return; }
+    gdSyncing=true; // 아래 await 이전에 즉시 잠궈서 동시 중복 호출 방지 (예: 주기적 안전망 타이머와 겹치는 경우)
     await gdEnsureFreshToken();
-    gdDirty=false; gdSyncing=true; gdSetStatus('syncing');
+    gdDirty=false; gdSetStatus('syncing');
     try {
       // 1. Drive의 최신 데이터를 먼저 받아옴 (다른 기기가 먼저 올렸을 수 있으므로)
       let driveData = {};
@@ -1235,11 +1237,29 @@ ${jsonStr}
     const manifest=gdGetPhotoManifest();
     entries.forEach(([key,photos])=>{
       if(!photos.length) return; // 삭제 케이스는 다음 접속 때 정상 큐 처리로 넘김(keepalive로는 DELETE 생략)
-      const fileId=manifest[key]?.fileId;
-      if(!fileId) return; // 신규 파일 생성은 다음 접속 때 정상 큐에서 처리
       const jsonStr=JSON.stringify(photos);
-      fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-        {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
+      const fileId=manifest[key]?.fileId;
+      if(fileId){
+        // 기존 파일 업데이트
+        fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+          {method:'PATCH',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:jsonStr});
+      } else {
+        // 이 항목의 첫 사진(신규 파일) — 예전엔 여기서 건너뛰어서 앱을 바로 닫으면
+        // 통째로 유실됐다. keepalive로 신규 생성까지 처리해서 놓치지 않게 한다.
+        const fname=gdPhotoFilename(key);
+        const meta=JSON.stringify({name:fname,parents:['appDataFolder']});
+        const b='--gdbound';
+        const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
+        fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`,
+          {method:'POST',keepalive:true,headers:{Authorization:'Bearer '+gdToken,'Content-Type':`multipart/related; boundary="${b}"`},body})
+          .then(r=>r.ok?r.json():null).then(d=>{
+            if(d && d.id){
+              const m=gdGetPhotoManifest();
+              m[key]={fileId:d.id,count:photos.length,updatedAt:Date.now()};
+              gdSavePhotoManifest(m);
+            }
+          }).catch(()=>{});
+      }
     });
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden') gdPhotoQueueFlushSync();});
