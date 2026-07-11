@@ -12,6 +12,25 @@
   <meta name="theme-color" content="#0D1810">
   <link rel="manifest" href="manifest.json" id="manifestLink">
   <script>
+  // ══ 디버그 로그 (백업/복원 흐름 진단용) ══
+  // sessionStorage에 저장 — 같은 탭 안에서는 새로고침/OAuth 리디렉션을 거쳐도 로그가 유지된다.
+  window.dlog = function(msg){
+    try{
+      const entry = `[${new Date().toTimeString().slice(0,8)}] ${msg}`;
+      const key='_debug_log_v1';
+      const existing = JSON.parse(sessionStorage.getItem(key)||'[]');
+      existing.push(entry);
+      if(existing.length>500) existing.shift();
+      sessionStorage.setItem(key, JSON.stringify(existing));
+    }catch(e){}
+  };
+  window.dlogGet = function(){
+    try{ return JSON.parse(sessionStorage.getItem('_debug_log_v1')||'[]'); }catch(e){ return []; }
+  };
+  window.dlogClear = function(){ try{ sessionStorage.removeItem('_debug_log_v1'); }catch(e){} };
+  window.dlog('=== 앱 로드 시작 ===');
+  </script>
+  <script>
   // iOS Safari PWA에서 OAuth가 Safari로 이탈하는 문제 방지
   // 로컬 백업 모드 사용자는 OAuth가 필요 없으므로 manifest 유지 (PWA 전체화면 혜택 유지)
   // Drive 모드이거나 아직 선택 전(최초 실행)이면 manifest 비활성화로 OAuth 안전성 확보
@@ -686,9 +705,10 @@
   // 팝업/리디렉션 없이 토큰을 다시 받아올 수 있다. (브라우저 데이터 삭제로
   // 앱의 localStorage/토큰만 날아갔을 뿐 구글 로그인 세션 자체는 남아있는 경우가 많음)
   function gdSilentLoginAttempt(timeoutMs=6000){
+    dlog('gdSilentLoginAttempt 시작 (iframe prompt=none)');
     return new Promise(resolve=>{
       let done=false;
-      const finish=ok=>{ if(done) return; done=true; resolve(ok); };
+      const finish=ok=>{ if(done) return; done=true; dlog(`gdSilentLoginAttempt 종료: ${ok}`); resolve(ok); };
       try{
         const iframe=document.createElement('iframe');
         iframe.style.display='none';
@@ -702,9 +722,9 @@
         const startTs=Date.now();
         const poll=setInterval(()=>{
           if(gdRestoreToken()){ clearInterval(poll); iframe.remove(); finish(true); }
-          else if(Date.now()-startTs>timeoutMs){ clearInterval(poll); iframe.remove(); finish(false); }
+          else if(Date.now()-startTs>timeoutMs){ clearInterval(poll); iframe.remove(); dlog('gdSilentLoginAttempt 타임아웃 (구글 세션 쿠키가 없거나 iframe 내 접근이 차단됨 — 서드파티 쿠키 정책 등)'); finish(false); }
         },300);
-      }catch(e){ finish(false); }
+      }catch(e){ dlog('gdSilentLoginAttempt 예외: '+e.message); finish(false); }
     });
   }
 
@@ -819,23 +839,26 @@
 
   // ── 자동 동기화 ──
   async function gdSyncDown(forceDownload=false) {
-    if(!gdToken) return 'no-token';
-    if(gdSyncing) return 'busy';
+    if(!gdToken){ dlog('gdSyncDown: gdToken 없음'); return 'no-token'; }
+    if(gdSyncing){ dlog('gdSyncDown: 이미 동기화 중, busy 반환'); return 'busy'; }
     await gdEnsureFreshToken();
     gdSyncing=true; gdSetStatus('syncing');
     let result='error';
     try {
       const file = await gdFindFile(GD_DATA_FILE);
+      dlog(`gdSyncDown: GD_DATA_FILE 조회 결과=${file?('찾음, id='+file.id):'없음'}`);
       if(!file){gdSetStatus('ok');gdSyncing=false;return 'no-file';}
       // 수정시간 비교 — forceDownload면 항상 다운로드, 아니면 스킵 가능
       if(!forceDownload){
         const driveTs = new Date(file.modifiedTime).getTime();
         const localTs = parseInt(localStorage.getItem(GD_SYNC_TS)||'0');
-        if(driveTs <= localTs){gdSetStatus('ok');gdSyncing=false;return 'skipped';}
+        if(driveTs <= localTs){gdSetStatus('ok');gdSyncing=false;dlog('gdSyncDown: 로컬이 이미 최신 → skip');return 'skipped';}
       }
       const r = await gdFetch(`drive/v3/files/${file.id}?alt=media`);
+      dlog(`gdSyncDown: 파일 내용 요청 status=${r.status}`);
       if(!r.ok){gdSetStatus('error');gdSyncing=false;return 'error';}
       const data = await r.json();
+      dlog(`gdSyncDown: 받은 데이터 키=${Object.keys(data).join(',')}`);
       Object.entries(data).forEach(([k,v])=>_lsSet(k,v));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
@@ -849,7 +872,7 @@
           if(window.renderSlides) window.renderSlides();
         }, {once:true});
       }
-    } catch(e){gdSetStatus('error'); result='error';}
+    } catch(e){gdSetStatus('error'); result='error'; dlog('gdSyncDown 예외: '+e.message);}
     gdSyncing=false;
     return result;
   }
@@ -865,21 +888,27 @@
   }
   // 수동 복원 버튼용 — 명확한 결과 메시지로 진단을 돕는다
   async function gdManualRestore(){
-    if(!gdToken){ gdLogin(gdManualRestore); return; }
+    dlog('gdManualRestore 시작 (수동 복원 버튼)');
+    if(!gdToken){ dlog('gdManualRestore: 토큰 없음 → gdLogin 호출'); gdLogin(gdManualRestore); return; }
     if(typeof showLoading==='function') showLoading('Drive에서 데이터 확인 중...');
     const status = await gdSyncDown(true);
-    if(typeof gdRebuildPhotoManifestFromDrive==='function'){
-      try{ await gdRebuildPhotoManifestFromDrive(true); }catch(e){}
+    dlog(`gdManualRestore: gdSyncDown 결과=${status}`);
+    let photoResult={restored:0,failed:0};
+    if(typeof gdRestoreAllPhotos==='function'){
+      if(typeof showLoading==='function') showLoading('사진 복원 중...',true);
+      photoResult = await gdRestoreAllPhotos(false);
+      dlog(`gdManualRestore: 사진 복원 결과 restored=${photoResult.restored} failed=${photoResult.failed}`);
     }
     const email = await gdGetAccountEmail();
     if(typeof hideLoading==='function') hideLoading();
     const emailNote = email?`\n(계정: ${email})`:'';
+    const photoNote = photoResult.restored>0 ? `\n📸 사진 ${photoResult.restored}개도 복원했어요.` : '';
     if(status==='restored'){
-      showBigToast(`✅ Drive에서 데이터를 복원했어요!${emailNote}`);
+      showBigToast(`✅ Drive에서 데이터를 복원했어요!${photoNote}${emailNote}`);
     } else if(status==='no-file'){
       showBigToast(`⚠️ 이 계정에 저장된 백업이 없어요.${emailNote}\n다른 계정으로 로그인했는지 확인해보세요.`);
     } else if(status==='skipped'){
-      showBigToast(`ℹ️ 이미 최신 상태예요.${emailNote}`);
+      showBigToast(`ℹ️ 이미 최신 상태예요.${photoNote}${emailNote}`);
     } else {
       showBigToast('❌ 복원 중 오류가 발생했어요. 다시 시도해주세요.');
     }
@@ -888,6 +917,7 @@
   window.gdGetAccountEmail=gdGetAccountEmail;
   // ── 통합 업로드 (모든 상황에서 동일하게 동작) ──
   async function gdUpload() {
+    dlog('gdUpload 시작');
     if(!gdToken) return;
     await gdEnsureFreshToken();
     gdDirty=false; gdSyncing=true; gdSetStatus('syncing');
@@ -922,7 +952,8 @@
       await gdWriteFile(GD_DATA_FILE, JSON.stringify(payload));
       _lsSet(GD_SYNC_TS, String(Date.now()));
       gdSetStatus('ok');
-    } catch(e){ gdDirty=true; gdSetStatus('error'); }
+      dlog(`gdUpload 완료: payload 키=${Object.keys(payload).join(',')}`);
+    } catch(e){ gdDirty=true; gdSetStatus('error'); dlog('gdUpload 예외: '+e.message); }
     gdSyncing=false;
   }
 
@@ -1028,16 +1059,27 @@ ${jsonStr}
   // 하루하루 열어보지 않고도 전체를 즉시 되살릴 수 있는 진짜 "전체 복원" 버튼.
   async function gdDownloadAllPhotos() {
     if(!gdToken){gdLogin(gdDownloadAllPhotos);return;}
-    showLoading('Drive에서 사진 목록 확인 중...');
+    await gdRestoreAllPhotos(true);
+  }
+  // 핵심 사진 복원 로직 — showUI=true면 로딩/토스트 표시(수동 버튼용), false면 조용히 백그라운드 진행(자동 복원용)
+  async function gdRestoreAllPhotos(showUI){
+    if(!gdToken){ dlog('gdRestoreAllPhotos: gdToken 없음, 중단'); return {restored:0,failed:0}; }
+    if(showUI) showLoading('Drive에서 사진 목록 확인 중...');
+    dlog('gdRestoreAllPhotos 시작');
     try {
       await gdEnsureFreshToken();
       await gdRebuildPhotoManifestFromDrive(true); // 항상 최신 목록으로 다시 스캔
       const manifest=gdGetPhotoManifest();
       const keys=Object.keys(manifest);
-      if(!keys.length){hideLoading();showBigToast('⚠️ Drive에 저장된 사진이 없어요.');return;}
-      showLoading(`사진 다운로드 중... (0/${keys.length})`,true);
+      dlog(`Drive 사진 백업 파일 개수=${keys.length}`);
+      if(!keys.length){
+        if(showUI){ hideLoading(); showBigToast('⚠️ Drive에 저장된 사진이 없어요.'); }
+        dlog('Drive에 사진 백업이 없음 → 복원할 것 없음');
+        return {restored:0,failed:0};
+      }
+      if(showUI) showLoading(`사진 다운로드 중... (0/${keys.length})`,true);
       const db=await new Promise((res,rej)=>{const req=indexedDB.open('workout_photos_db',1);req.onsuccess=e=>res(e.target.result);req.onerror=rej;});
-      let done=0, restored=0, failed=0;
+      let done=0, restored=0, failed=0, surfaced=0;
       for(const key of keys){
         try{
           const r=await gdFetch(`drive/v3/files/${manifest[key].fileId}?alt=media`);
@@ -1048,19 +1090,61 @@ ${jsonStr}
               photoCache[key]=photos;
               photoKeySet.add(key);
               restored++;
+              // 사진은 복원됐지만 그 날짜의 루틴에 해당 종목이 없으면 카드에 아예 안 뜨는
+              // "고아 데이터"가 될 수 있다 — 루틴에 없으면 그 날짜의 '추가 항목'으로 등록해서
+              // 반드시 화면에 보이도록 만든다.
+              const idx=key.indexOf(':');
+              const dk=key.slice(0,idx), typeFull=key.slice(idx+1);
+              const baseType=typeFull.split(':')[0];
+              if(typeof ensureTypeVisibleOnCard==='function'){
+                const added=ensureTypeVisibleOnCard(dk, baseType);
+                if(added) surfaced++;
+              }
             }
-          } else failed++;
-        }catch(e){ failed++; }
+          } else { failed++; dlog(`사진 복원 실패 key=${key} status=${r.status}`); }
+        }catch(e){ failed++; dlog(`사진 복원 예외 key=${key}: ${e.message}`); }
         done++;
-        setProgress(done/keys.length*100);
-        showLoading(`사진 다운로드 중... (${done}/${keys.length})`,true);
+        if(showUI){ setProgress(done/keys.length*100); showLoading(`사진 다운로드 중... (${done}/${keys.length})`,true); }
       }
-      hideLoading();
+      dlog(`gdRestoreAllPhotos 완료: 복원=${restored}, 실패=${failed}, 추가항목으로 노출=${surfaced}`);
+      if(showUI) hideLoading();
       if(window.renderSlides) window.renderSlides();
-      if(failed>0) showBigToast(`✅ ${restored}개 복원, ⚠️ ${failed}개 실패했어요.`);
-      else showBigToast(`✅ 사진 ${restored}개 항목 복원 완료!`);
-    } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
+      if(showUI){
+        if(failed>0) showBigToast(`✅ ${restored}개 복원, ⚠️ ${failed}개 실패했어요.`);
+        else showBigToast(`✅ 사진 ${restored}개 항목 복원 완료!`);
+      }
+      return {restored,failed,surfaced};
+    } catch(e){
+      dlog('gdRestoreAllPhotos 오류: '+e.message);
+      if(showUI){ hideLoading(); showBigToast('❌ 오류: '+e.message); }
+      return {restored:0,failed:0,error:e.message};
+    }
   }
+  window.gdRestoreAllPhotos=gdRestoreAllPhotos;
+  // 특정 날짜 카드에 그 종목이 안 보이면(루틴에도 없고 이미 추가항목도 아니면) 추가항목으로 등록.
+  // 복원된 사진이 화면에 하나도 안 뜨는 "고아 데이터"가 되는 걸 막기 위한 안전장치.
+  function ensureTypeVisibleOnCard(dk, type){
+    try{
+      if(typeof getRoutineForDate!=='function' || typeof getDayPlan!=='function') return false;
+      const [y,m,d]=dk.split('-').map(Number);
+      const cardDate=new Date(y,m-1,d);
+      const dayIndex=cardDate.getDay();
+      const {routine, anchor}=getRoutineForDate(cardDate);
+      const anchorWS=getWeekStart(new Date(anchor));
+      const wIdx=((Math.round((getWeekStart(cardDate)-anchorWS)/(7*86400000))%routine.cycle)+routine.cycle)%routine.cycle;
+      const plan=getDayPlan(dayIndex,wIdx,routine);
+      const removedTypes=(typeof getRemovedTypes==='function')?getRemovedTypes(dk):[];
+      const planTypes=plan.filter(p=>p.type!=='rest'&&!removedTypes.includes(p.type)).map(p=>p.type);
+      if(planTypes.includes(type)) return false; // 이미 루틴에 있어서 원래도 보임
+      if(typeof getExtraTypes==='function'){
+        const extras=getExtraTypes(dk, planTypes);
+        if(extras.includes(type)) return false; // 이미 추가항목으로 등록돼 보임
+      }
+      if(typeof addExtraType==='function'){ addExtraType(dk, type); return true; }
+      return false;
+    }catch(e){ return false; }
+  }
+  window.ensureTypeVisibleOnCard=ensureTypeVisibleOnCard;
 
   // ══ 사진 자동 백업 (증분 업로드) ══
   // 하루/종목 단위(dk:type)로 사진이 바뀔 때마다, 그 항목의 사진만 작은 파일로 Drive에 올린다.
@@ -1172,6 +1256,7 @@ ${jsonStr}
       const key=`${dk}:${type}`;
       const entry=gdGetPhotoManifest()[key];
       if(entry && entry.fileId){
+        dlog(`getPhotosWithRestore: 로컬에 사진 없음, manifest에 있음 → 복원 시도 key=${key}`);
         try{
           const r=await gdFetch(`drive/v3/files/${entry.fileId}?alt=media`);
           if(r.ok){
@@ -1180,9 +1265,12 @@ ${jsonStr}
               await savePhotos(dk,type,restored);
               if(typeof photoKeySet!=='undefined') photoKeySet.add(key);
               photos=restored;
+              dlog(`getPhotosWithRestore: 복원 성공 key=${key} 개수=${restored.length}`);
             }
+          } else {
+            dlog(`getPhotosWithRestore: 복원 실패 key=${key} status=${r.status}`);
           }
-        }catch(e){}
+        }catch(e){ dlog(`getPhotosWithRestore: 예외 key=${key}: ${e.message}`); }
       }
     }
     return photos;
@@ -1190,8 +1278,9 @@ ${jsonStr}
   // 로컬 저장소 전체가 초기화된 경우(기기 변경, 데이터 삭제 등) 대비 —
   // Drive의 사진 백업 파일 목록을 훑어서 manifest를 재구성 → 메인 카드 사진 아이콘도 다시 살아남
   async function gdRebuildPhotoManifestFromDrive(force=false){
-    if(!gdToken) return;
-    if(!force && Object.keys(gdGetPhotoManifest()).length>0) return; // 이미 manifest 있으면 스킵(빠른 시작 우선)
+    if(!gdToken){ dlog('gdRebuildPhotoManifestFromDrive: gdToken 없음'); return; }
+    if(!force && Object.keys(gdGetPhotoManifest()).length>0){ dlog('gdRebuildPhotoManifestFromDrive: 이미 manifest 있음, force=false → skip'); return; } // 이미 manifest 있으면 스킵(빠른 시작 우선)
+    dlog(`gdRebuildPhotoManifestFromDrive 시작 (force=${force})`);
     try{
       let pageToken='', newManifest={};
       do{
@@ -1203,12 +1292,13 @@ ${jsonStr}
         });
         pageToken=d.nextPageToken||'';
       } while(pageToken);
+      dlog(`gdRebuildPhotoManifestFromDrive: Drive에서 찾은 사진 파일 개수=${Object.keys(newManifest).length}`);
       if(Object.keys(newManifest).length>0){
         gdSavePhotoManifest(newManifest);
         if(typeof photoKeySet!=='undefined') Object.keys(newManifest).forEach(k=>photoKeySet.add(k));
         if(window.renderSlides) window.renderSlides();
       }
-    }catch(e){}
+    }catch(e){ dlog('gdRebuildPhotoManifestFromDrive 예외: '+e.message); }
   }
   window.gdQueuePhotoBackup=gdQueuePhotoBackup;
   window.getPhotosWithRestore=getPhotosWithRestore;
@@ -1235,6 +1325,7 @@ ${jsonStr}
 
   // ── 페이지 로드 ──
   window.addEventListener('load',()=>{
+    dlog('window load 이벤트 시작');
     // 대회 일정 → 메인 카드 초기 반영
     // 기존에 EXTRA_KEY가 객체 배열로 오염됐을 경우 정리
     try{
@@ -1257,8 +1348,10 @@ ${jsonStr}
       if(savedMode==='local'){ icon.textContent='💾'; text.textContent='로컬 백업'; }
       else { icon.textContent='☁️'; text.textContent='Drive 동기화'; }
     }
+    dlog(`gd_mode=${savedMode}`);
     // OAuth 리디렉션 후 토큰 처리
     if(location.hash.includes('access_token')){
+      dlog('OAuth 콜백 감지 → gdHandleCallback 실행 (완료 후 location.replace로 새로고침됨)');
       gdHandleCallback(); // 토큰 저장 + location.replace() 실행 → 페이지 새로고침
       // location.replace() 이후 코드는 실행되지 않음
       return;
@@ -1267,41 +1360,58 @@ ${jsonStr}
     const savedMode2 = localStorage.getItem('gd_mode')||'drive';
     if(savedMode2==='local'){
       // 로컬 백업 모드면 토큰 있어도 자동 동기화 안 함
+      dlog('로컬 백업 모드 → 동기화 스킵, checkFirstRun 호출');
       checkFirstRun();
       return;
     }
-    if(gdRestoreToken()){
+    const tokenRestored = gdRestoreToken();
+    dlog(`gdRestoreToken() = ${tokenRestored}`);
+    if(tokenRestored){
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      if(typeof gdRebuildPhotoManifestFromDrive==='function') gdRebuildPhotoManifestFromDrive();
       const isFirstOpen = !sessionStorage.getItem('gd_session');
       sessionStorage.setItem('gd_session', '1');
+      dlog(`isFirstOpen(이 세션 첫 로드)=${isFirstOpen}`);
       if(isFirstOpen){
-        gdUpload().then(()=>gdSyncDown(true)).then(()=>{
+        dlog('gdUpload() 시작');
+        gdUpload().then(()=>{ dlog('gdUpload() 완료 → gdSyncDown(true) 시작'); return gdSyncDown(true); }).then(async (syncResult)=>{
+          dlog(`gdSyncDown 결과=${syncResult}`);
           const restoredRoutine=!!localStorage.getItem('workout_routine_v2');
+          dlog(`복원 후 routine 존재=${restoredRoutine}`);
+          // 사진 복원은 루틴 복원 여부와 무관하게 항상 시도한다 — 텍스트 데이터(루틴)와
+          // 사진 백업은 서로 독립된 데이터라, 어느 한쪽만 있는 경우도 놓치지 않기 위함.
+          dlog('사진 전체 복원 시작 (자동, 루틴 상태와 무관)');
+          const photoResult = (typeof gdRestoreAllPhotos==='function') ? await gdRestoreAllPhotos(false) : {restored:0};
+          dlog(`사진 전체 복원 완료: ${JSON.stringify(photoResult)}`);
           if(localStorage.getItem('onboard_pending')){
             localStorage.removeItem('onboard_pending');
             if(restoredRoutine){
-              // Drive에 이미 데이터가 있었음 — 새로 설정할 필요 없이 바로 복원된 화면 표시
+              dlog('onboard_pending 케이스: 기존 데이터 복원됨 → 온보딩 건너뜀');
               if(typeof raceApplyToCards==='function') raceApplyToCards(true);
               if(window.renderSlides) window.renderSlides();
               if(typeof showBigToast==='function') showBigToast('☁️ Drive에서 기존 데이터를 복원했어요!');
             } else {
+              dlog('onboard_pending 케이스: Drive에도 데이터 없음 → 온보딩 진행');
               onbMode='drive';
               startOnboarding();
               setTimeout(()=>onbGoTo(3), 100);
             }
           } else {
+            dlog('일반 로드: checkFirstRun() 호출');
             checkFirstRun();
           }
-        });
+        }).catch(e=>dlog('gdUpload/gdSyncDown 체인 오류: '+e.message));
+      } else {
+        dlog('이미 이 세션에서 로드된 적 있음 → 재동기화 스킵');
       }
       return;
     }
     // 토큰 복원 실패 — Drive 모드인데 로그인 안 돼있으면 로그인 팝업 표시
     const hasRoutine = !!localStorage.getItem('workout_routine_v2');
+    dlog(`토큰 복원 실패. hasRoutine(로컬 루틴 존재)=${hasRoutine}`);
     if(hasRoutine){
       // 기존 사용자: 토큰 만료/없음 → 로그인 필요 안내
+      dlog('기존 사용자로 판단 → 로그인 안내 팝업 표시');
       setTimeout(()=>{
         const overlay=document.getElementById('gdOverlay');
         if(overlay) overlay.classList.add('open');
@@ -1311,27 +1421,90 @@ ${jsonStr}
     // 로컬 데이터(루틴)도 없고 토큰도 없음 — 신규 사용자인지, 브라우저 데이터 삭제로
     // 기존 사용자의 로그인 정보만 날아간 것인지 구분이 안 되므로, 온보딩(설정화면)을
     // 띄우기 전에 조용한 Drive 로그인을 먼저 시도해서 기존 데이터가 있는지 확인한다.
+    dlog('로컬 데이터+토큰 모두 없음 → 조용한 로그인(gdSilentLoginAttempt) 시도');
     if(typeof showLoading==='function') showLoading('기존 데이터 확인 중...');
     gdSilentLoginAttempt().then(async ok=>{
-      if(!ok){ if(typeof hideLoading==='function') hideLoading(); checkFirstRun(); return; } // 세션 없음 → 신규 사용자로 간주, 기존처럼 온보딩
+      dlog(`gdSilentLoginAttempt() 결과=${ok}`);
+      if(!ok){
+        if(typeof hideLoading==='function') hideLoading();
+        dlog('조용한 로그인 실패 → 복원/신규 선택 화면 표시 (자동으로 온보딩 진입하지 않음)');
+        if(typeof showRestoreOrNewPrompt==='function'){ showRestoreOrNewPrompt(); }
+        else { checkFirstRun(); } // 안전망: 프롬프트 함수가 없으면 기존처럼 동작
+        return;
+      }
+      dlog('조용한 로그인 성공 → gdSyncDown(true) 시작');
       const btn=document.getElementById('gdLoginBtn');
       if(btn){btn.textContent='🔄 동기화 재실행';btn.onclick=()=>{document.getElementById('gdOverlay').classList.remove('open');gdUpload();};}
-      if(typeof gdRebuildPhotoManifestFromDrive==='function') gdRebuildPhotoManifestFromDrive();
-      await gdSyncDown(true);
-      if(typeof hideLoading==='function') hideLoading();
+      const syncResult = await gdSyncDown(true);
+      dlog(`gdSyncDown 결과=${syncResult}`);
       const restored=!!localStorage.getItem('workout_routine_v2');
+      dlog(`복원 후 routine 존재=${restored}`);
+      // 사진 복원도 루틴 복원 여부와 무관하게 항상 시도 (독립된 데이터이므로)
+      dlog('사진 전체 복원 시작 (자동, 조용한 로그인 경로 — 루틴 상태와 무관)');
+      const photoResult = (typeof gdRestoreAllPhotos==='function') ? await gdRestoreAllPhotos(true) : {restored:0};
+      dlog(`사진 전체 복원 완료 (조용한 로그인 경로): ${JSON.stringify(photoResult)}`);
+      if(typeof hideLoading==='function') hideLoading();
       if(restored){
         if(typeof raceApplyToCards==='function') raceApplyToCards(true);
         if(window.renderSlides) window.renderSlides();
         if(typeof showBigToast==='function') showBigToast('☁️ Drive에서 기존 데이터를 복원했어요!');
+      } else if(photoResult.restored>0){
+        // 루틴은 없었지만 사진은 복원된 특수 케이스 — 신규 온보딩 대신 알려만 주고 그대로 둔다
+        if(window.renderSlides) window.renderSlides();
+        if(typeof showBigToast==='function') showBigToast(`📸 사진 ${photoResult.restored}개를 복원했어요.`);
+        checkFirstRun();
       } else {
+        dlog('Drive에도 데이터 없음 → 진짜 신규 사용자로 판단, checkFirstRun 호출');
         checkFirstRun(); // 로그인은 됐지만 Drive에도 저장된 데이터가 없음 → 진짜 신규 사용자
       }
+    }).catch(e=>{
+      dlog('gdSilentLoginAttempt 체인 오류: '+e.message);
+      if(typeof hideLoading==='function') hideLoading();
+      checkFirstRun();
     });
   });
   </script>
 </head>
 <body>
+<!-- 디버그 로그 버튼 (하단 구석, 티 안 나게) -->
+<div id="debugLogBtn" style="position:fixed;bottom:6px;right:6px;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.06);z-index:99998;cursor:pointer;"></div>
+<div id="debugLogOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#0A130A;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;">
+    <div style="font-size:15px;font-weight:800;color:#fff;">🐞 디버그 로그</div>
+    <div style="display:flex;gap:8px;">
+      <button id="debugLogCopyBtn" style="padding:6px 12px;border-radius:8px;border:none;background:rgba(163,230,53,0.15);color:#A3E635;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">복사</button>
+      <button id="debugLogClearBtn" style="padding:6px 12px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:#9CA3AF;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">지우기</button>
+      <button id="debugLogCloseBtn" style="padding:6px 12px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:#9CA3AF;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✕</button>
+    </div>
+  </div>
+  <div id="debugLogContent" style="flex:1;overflow-y:auto;padding:14px 16px;font-family:monospace;font-size:11px;line-height:1.7;color:#D1D5DB;white-space:pre-wrap;word-break:break-all;"></div>
+</div>
+<script>
+(function(){
+  const btn=document.getElementById('debugLogBtn');
+  const overlay=document.getElementById('debugLogOverlay');
+  const content=document.getElementById('debugLogContent');
+  function renderLog(){
+    const logs=window.dlogGet?window.dlogGet():[];
+    content.textContent = logs.length ? logs.join('\n') : '(기록된 로그가 없어요)';
+  }
+  btn.addEventListener('click', ()=>{
+    renderLog();
+    overlay.style.display='flex';
+  });
+  document.getElementById('debugLogCloseBtn').onclick=()=>{ overlay.style.display='none'; };
+  document.getElementById('debugLogClearBtn').onclick=()=>{ window.dlogClear&&window.dlogClear(); renderLog(); };
+  document.getElementById('debugLogCopyBtn').onclick=()=>{
+    const logs=window.dlogGet?window.dlogGet():[];
+    const text=logs.join('\n');
+    navigator.clipboard.writeText(text).then(()=>{
+      const orig=document.getElementById('debugLogCopyBtn').textContent;
+      document.getElementById('debugLogCopyBtn').textContent='✓ 복사됨';
+      setTimeout(()=>{document.getElementById('debugLogCopyBtn').textContent=orig;},1500);
+    }).catch(()=>{});
+  };
+})();
+</script>
 <!-- 대회 일정 -->
 <div class="race-overlay" id="raceOverlay">
   <div class="race-box">
@@ -1376,6 +1549,17 @@ ${jsonStr}
       <button class="pace-tab" data-pace-tab="treadmill">⏱️ 트레드밀</button>
     </div>
     <div class="pace-body" id="paceBody"></div>
+  </div>
+</div>
+
+<!-- 조용한 로그인 실패 시: 기존 사용자인지 확인하는 프롬프트 -->
+<div id="restorePromptOverlay" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(10,19,10,0.92);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface,#132018);border-radius:20px;padding:28px 24px;max-width:340px;width:100%;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+    <div style="font-size:36px;margin-bottom:14px;">☁️</div>
+    <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px;">기존에 쓰시던 분이신가요?</div>
+    <div style="font-size:13px;color:var(--subtext,#9CA3AF);margin-bottom:22px;line-height:1.55;">브라우저 데이터가 삭제된 것 같아요.<br>Google 계정으로 로그인하면 이전 데이터를 복원할 수 있어요.</div>
+    <button id="restorePromptLoginBtn" style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--lime,#A3E635);color:#0A130A;font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-bottom:10px;">🔑 로그인해서 복원하기</button>
+    <button id="restorePromptNewBtn" style="background:none;border:none;color:var(--subtext,#9CA3AF);font-size:13px;text-decoration:underline;cursor:pointer;font-family:'Noto Sans KR',sans-serif;padding:6px;">아니요, 새로 시작할게요</button>
   </div>
 </div>
 
@@ -5925,8 +6109,31 @@ function raceGetOverride(dk, type){
 function checkFirstRun(){
   const hasRoutine = !!localStorage.getItem('workout_routine_v2');
   const onboardDone = !!localStorage.getItem('onboard_done_v1');
+  dlog(`checkFirstRun: hasRoutine=${hasRoutine} onboardDone=${onboardDone}`);
   if(hasRoutine || onboardDone) return;
   startOnboarding();
+}
+
+// 조용한 로그인(iframe, 쿠키 기반)이 실패했을 때 보여주는 선택 화면.
+// 서드파티 쿠키 차단 등으로 조용한 로그인은 신뢰도가 낮으므로, 곧바로 신규사용자용
+// 온보딩으로 넘기지 않고, 명시적으로 "로그인해서 복원" 옵션을 먼저 제시한다.
+// (수동 로그인은 전체 페이지 리디렉션이라 쿠키 정책과 무관하게 항상 동작한다)
+function showRestoreOrNewPrompt(){
+  dlog('showRestoreOrNewPrompt 표시');
+  const overlay=document.getElementById('restorePromptOverlay');
+  if(!overlay){ dlog('restorePromptOverlay 엘리먼트 없음 → checkFirstRun으로 대체'); checkFirstRun(); return; }
+  overlay.style.display='flex';
+  document.getElementById('restorePromptLoginBtn').onclick=()=>{
+    dlog('사용자가 "로그인해서 복원하기" 선택');
+    overlay.style.display='none';
+    localStorage.setItem('onboard_pending', '1');
+    gdLogin();
+  };
+  document.getElementById('restorePromptNewBtn').onclick=()=>{
+    dlog('사용자가 "새로 시작할게요" 선택');
+    overlay.style.display='none';
+    checkFirstRun();
+  };
 }
 
 /* ══ 온보딩 ══ */
@@ -7009,6 +7216,7 @@ document.getElementById('calPickerOverlay').onclick=e=>{if(e.target===document.g
   safe('gdCloseBtn',        ()=>overlay.classList.remove('open'));
   safe('gdRestoreBtn', ()=>{ if(window.gdManualRestore) window.gdManualRestore(); });
   safe('gdLoginBtn', ()=>{
+    dlog(`gdLoginBtn 클릭: window.gdToken 존재=${!!window.gdToken}`);
     if(window.gdToken){
       document.getElementById('gdOverlay').classList.remove('open');
       window.gdUpload && window.gdUpload();
