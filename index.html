@@ -2410,6 +2410,10 @@ function buildSlideHTML(ws){
               <div class="addon-item-icon" style="background:rgba(163,230,53,0.13);">🏅</div>
               <div><div class="addon-item-name">대회 일정</div><div class="addon-item-desc">참가 대회 관리 · 메인 카드 연동</div></div>
             </button>
+            <button class="addon-item" data-addon="pio">
+              <div class="addon-item-icon" style="background:rgba(251,191,36,0.13);">💪</div>
+              <div><div class="addon-item-name">PIO 인증</div><div class="addon-item-desc">PIO 3기 챌린지 인증 페이지 열기</div></div>
+            </button>
           </div>
         </div>
         <button class="nav-btn" id="searchBtn" title="메모 검색">🔍</button>
@@ -2482,6 +2486,7 @@ function wireNav(){
   });
   document.querySelectorAll('.addon-item[data-addon="pace"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonPace(); });
   document.querySelectorAll('.addon-item[data-addon="race"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonRace(); });
+  document.querySelectorAll('.addon-item[data-addon="pio"]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openAddonPio(); });
   applyAddonDropdownState();
   document.querySelectorAll('#navCenter').forEach(b=>b.onclick=e=>{
     if(e.target.closest('.this-week-btn')) return;
@@ -5144,6 +5149,14 @@ let raceSelectedYear=(()=>{
   return y;
 })();
 
+function openAddonPio(){
+  addonDropdownOpen=false; applyAddonDropdownState();
+  const w=window.open('https://double-hee.github.io/PIO/', 'pioCert', 'width=420,height=800,noopener,noreferrer');
+  if(!w){
+    // 팝업 차단된 경우 새 탭으로라도 열어준다
+    window.open('https://double-hee.github.io/PIO/', '_blank', 'noopener,noreferrer');
+  }
+}
 function openAddonRace(){
   addonDropdownOpen=false; applyAddonDropdownState();
   document.getElementById('raceOverlay').classList.add('open');
