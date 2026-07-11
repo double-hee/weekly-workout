@@ -793,7 +793,7 @@
   // ── Drive API 헬퍼 ──
   async function gdFetch(path, opts={}) {
     const doFetch=()=>fetch('https://www.googleapis.com/'+path, {
-      ...opts, keepalive:true,
+      ...opts,
       headers:{Authorization:'Bearer '+gdToken,...(opts.headers||{})}
     });
     let res=await doFetch();
