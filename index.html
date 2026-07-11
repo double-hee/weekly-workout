@@ -638,6 +638,8 @@
       if(!localStorage.getItem(GD_LOGIN_HINT)){
         gdGetAccountEmail().then(email=>{ if(email) _lsSet(GD_LOGIN_HINT, email); }).catch(()=>{});
       }
+      // 토큰이 없던 순간에 큐잉되지 못하고 밀려있던 사진 백업이 있으면 마저 처리
+      if(typeof gdProcessPendingPhotoDirtyKeys==='function') gdProcessPendingPhotoDirtyKeys();
       return true;
     }
     return false;
@@ -698,7 +700,7 @@
   }
   // 안전망: setTimeout이 어떤 이유로든 못 지켜졌을 경우를 대비해, 앱이 열려있는 동안
   // 주기적으로(3분마다) 토큰 신선도를 직접 확인해서 필요하면 갱신한다.
-  setInterval(()=>{ if(gdToken) gdEnsureFreshToken(); }, 180000);
+  setInterval(()=>{ if(gdToken){ gdEnsureFreshToken(); if(typeof gdProcessPendingPhotoDirtyKeys==='function') gdProcessPendingPhotoDirtyKeys(); } }, 180000);
 
   // ── 조용한 로그인 시도 (로그인 정보 자체가 사라진 경우 대비) ──
   // login_hint 없이 prompt=none으로 시도 — 브라우저에 Google 계정 세션이 남아있으면
@@ -1035,6 +1037,7 @@ ${jsonStr}
   // 네트워크 문제로 일부 항목이 누락됐을 수 있는 경우 "따라잡기" 용도로 쓴다.
   async function gdUploadAllPhotos() {
     if(!gdToken){gdLogin(gdUploadAllPhotos);return;}
+    dlog('gdUploadAllPhotos(전체 올리기) 시작');
     if(gdDirty){showLoading('운동 목록 동기화 중...');await gdSyncUp();}
     showLoading('사진 수집 중...');
     try {
@@ -1042,19 +1045,24 @@ ${jsonStr}
       const db=await new Promise((res,rej)=>{const r=indexedDB.open('workout_photos_db',1);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
       const all=await new Promise((res,rej)=>{const tx=db.transaction('photos','readonly');const st=tx.objectStore('photos');const result={};const cr=st.openCursor();cr.onsuccess=e=>{const cursor=e.target.result;if(cursor){result[cursor.key]=cursor.value;cursor.continue();}else res(result);};cr.onerror=rej;});
       const keys=Object.keys(all).filter(k=>Array.isArray(all[k]) && all[k].length>0);
-      if(!keys.length){hideLoading();showBigToast('⚠️ 저장된 사진이 없어요.');return;}
+      dlog(`gdUploadAllPhotos: 로컬 IndexedDB에서 찾은 항목 수=${keys.length} (전체 키=${Object.keys(all).length})`);
+      if(!keys.length){hideLoading();showBigToast('⚠️ 저장된 사진이 없어요.');dlog('gdUploadAllPhotos: 로컬에 사진 자체가 없음');return;}
       showLoading(`사진 업로드 중... (0/${keys.length})`,true);
       let done=0, failed=0;
       for(const key of keys){
-        try{ await gdSyncPhotoKey(key, all[key]); }catch(e){ failed++; }
+        try{
+          const ok = await gdSyncPhotoKey(key, all[key]);
+          if(!ok) failed++;
+        }catch(e){ failed++; dlog(`gdUploadAllPhotos: key=${key} 예외: ${e.message}`); }
         done++;
         setProgress(done/keys.length*100);
         showLoading(`사진 업로드 중... (${done}/${keys.length})`,true);
       }
       hideLoading();
+      dlog(`gdUploadAllPhotos 완료: 성공=${done-failed}, 실패=${failed}`);
       if(failed>0) showBigToast(`⚠️ ${done-failed}개 성공, ${failed}개 실패했어요.`);
       else showBigToast(`✅ 사진 ${done}개 항목 업로드 완료!`);
-    } catch(e){hideLoading();showBigToast('❌ 오류: '+e.message);}
+    } catch(e){hideLoading();dlog('gdUploadAllPhotos 예외: '+e.message);showBigToast('❌ 오류: '+e.message);}
   }
   // "전체 받기" — Drive에 백업된 모든 사진(자동 증분 백업으로 쌓인 파일별 백업 전부)을
   // 한 번에 스캔해서 로컬 IndexedDB로 복원한다. 브라우저 데이터가 통째로 삭제된 뒤
@@ -1171,31 +1179,71 @@ ${jsonStr}
 
   let gdPhotoQueue=new Map(); // key(dk:type) → 그 시점의 사진 배열 스냅샷
   let gdPhotoQueueTimer=null;
+  const GD_PHOTO_DIRTY_KEYS='gd_photo_dirty_keys_v1'; // 토큰이 없던 순간에 큐잉된 항목도 기억해두기 위한 영구 기록
+  function gdGetPendingPhotoKeys(){ try{ return JSON.parse(localStorage.getItem(GD_PHOTO_DIRTY_KEYS)||'[]'); }catch(e){ return []; } }
+  function gdAddPendingPhotoKey(key){
+    try{
+      const list=gdGetPendingPhotoKeys();
+      if(!list.includes(key)){ list.push(key); _lsSet(GD_PHOTO_DIRTY_KEYS, JSON.stringify(list)); }
+    }catch(e){}
+  }
+  function gdRemovePendingPhotoKey(key){
+    try{
+      const list=gdGetPendingPhotoKeys().filter(k=>k!==key);
+      _lsSet(GD_PHOTO_DIRTY_KEYS, JSON.stringify(list));
+    }catch(e){}
+  }
   // 사진이 추가/삭제될 때 호출 — 그 순간의 사진 배열(photos)을 그대로 스냅샷으로 들고 있다가
   // 4초가 아닌 1.5초 대기 후 업로드(연속 조작 시 낭비 방지). 나중에 IndexedDB를 다시 읽지
   // 않기 때문에, 그 사이 브라우저 데이터가 지워져도 "빈 걸로 착각해서 Drive 백업을 지우는"
   // 사고가 나지 않는다 — 스냅샷은 메모리에 있어서 저장소 삭제의 영향을 받지 않는다.
   function gdQueuePhotoBackup(dk,type,photos){
+    const key=`${dk}:${type}`;
+    // 이 시점에 토큰이 없어도(만료/미로그인) 나중에 다시 시도할 수 있도록 항상 기록해둔다.
+    // 예전엔 gdToken이 없으면 그냥 조용히 리턴해버려서, 그 사진은 영영 백업 대상에서
+    // 누락되는 문제가 있었다 (토큰이 정상화돼도 아무도 이 항목을 기억하지 못했음).
+    gdAddPendingPhotoKey(key);
+    dlog(`gdQueuePhotoBackup: key=${key} 사진개수=${photos.length} gdToken존재=${!!gdToken}`);
     if(!gdToken) return;
     const mode=localStorage.getItem('gd_mode')||'drive';
     if(mode!=='drive') return; // 로컬 백업 모드면 자동 업로드 안함
-    gdPhotoQueue.set(`${dk}:${type}`, photos.slice());
+    gdPhotoQueue.set(key, photos.slice());
     clearTimeout(gdPhotoQueueTimer);
     gdPhotoQueueTimer=setTimeout(gdProcessPhotoQueue, 1500);
   }
   async function gdProcessPhotoQueue(){
-    if(!gdToken || gdPhotoQueue.size===0) return;
+    if(!gdToken || gdPhotoQueue.size===0){ dlog(`gdProcessPhotoQueue: 스킵 (gdToken=${!!gdToken}, 큐크기=${gdPhotoQueue.size})`); return; }
+    dlog(`gdProcessPhotoQueue 시작: 큐크기=${gdPhotoQueue.size}`);
     await gdEnsureFreshToken();
     const entries=[...gdPhotoQueue.entries()];
     gdPhotoQueue.clear();
     for(const [key,photos] of entries){
-      try{ await gdSyncPhotoKey(key,photos); }catch(e){}
+      try{ await gdSyncPhotoKey(key,photos); dlog(`gdProcessPhotoQueue: key=${key} 처리 완료`); }
+      catch(e){ dlog(`gdProcessPhotoQueue: key=${key} 예외: ${e.message}`); }
       await new Promise(r=>setTimeout(r,200)); // 연속 업로드 사이 짧은 텀(네트워크 부담 완화)
+    }
+  }
+  // 토큰이 다시 확보됐을 때, 그동안 밀려있던(gdToken 없어서 못 올렸던) 사진 항목을 마저 처리
+  async function gdProcessPendingPhotoDirtyKeys(){
+    if(!gdToken) return;
+    const list=gdGetPendingPhotoKeys();
+    if(!list.length) return;
+    dlog(`gdProcessPendingPhotoDirtyKeys 시작: 대기항목=${list.length}`);
+    for(const key of list){
+      try{
+        const idx=key.indexOf(':');
+        const dk=key.slice(0,idx), type=key.slice(idx+1);
+        const photos=await getPhotos(dk,type);
+        await gdSyncPhotoKey(key, photos);
+        gdRemovePendingPhotoKey(key);
+        dlog(`gdProcessPendingPhotoDirtyKeys: key=${key} 처리 완료 (사진 ${photos.length}개)`);
+      }catch(e){ dlog(`gdProcessPendingPhotoDirtyKeys: key=${key} 예외: ${e.message}`); }
+      await new Promise(r=>setTimeout(r,200));
     }
   }
   // 사진 배열 하나(하루+종목)만 Drive에 업로드 — 스냅샷을 그대로 신뢰하고 사용(재조회 없음)
   async function gdSyncPhotoKey(key,photos){
-    if(!gdToken) return;
+    if(!gdToken){ dlog(`gdSyncPhotoKey: gdToken 없음, key=${key} 중단`); return false; }
     const manifest=gdGetPhotoManifest();
     if(!photos.length){
       // 사진을 전부 지운 경우(실제 사용자 조작으로 확인된 스냅샷 기준) → Drive의 백업 파일도 정리
@@ -1203,29 +1251,44 @@ ${jsonStr}
       if(fileId){ try{ await gdFetch(`drive/v3/files/${fileId}`,{method:'DELETE'}); }catch(e){} }
       delete manifest[key];
       gdSavePhotoManifest(manifest);
-      return;
+      gdRemovePendingPhotoKey(key);
+      dlog(`gdSyncPhotoKey: key=${key} 사진 0장 → Drive 파일 삭제 처리`);
+      return true;
     }
     const jsonStr=JSON.stringify(photos);
     const fname=gdPhotoFilename(key);
     let fileId=manifest[key]?.fileId;
+    dlog(`gdSyncPhotoKey: key=${key} fname=${fname} manifest에 fileId 있음=${!!fileId} payload크기=${jsonStr.length}bytes`);
     if(!fileId){
       const existing=await gdFindFile(fname);
       fileId=existing?existing.id:null;
+      dlog(`gdSyncPhotoKey: gdFindFile(${fname}) 결과=${fileId?('찾음 '+fileId):'없음(신규 생성 필요)'}`);
     }
     let res;
     if(fileId){
       res=await gdFetch(`upload/drive/v3/files/${fileId}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:jsonStr});
+      dlog(`gdSyncPhotoKey: PATCH 결과 status=${res.status}`);
     } else {
       const meta=JSON.stringify({name:fname,parents:['appDataFolder']});
       const b='--gdbound';
       const body=`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${jsonStr}\r\n--${b}--`;
       res=await gdFetch('upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':`multipart/related; boundary="${b}"`},body});
+      dlog(`gdSyncPhotoKey: POST(신규생성) 결과 status=${res.status}`);
       if(res.ok){ const d=await res.json(); fileId=d.id; }
     }
     if(res && res.ok){
       manifest[key]={fileId,count:photos.length,updatedAt:Date.now()};
       gdSavePhotoManifest(manifest);
+      gdRemovePendingPhotoKey(key);
+      dlog(`gdSyncPhotoKey: key=${key} 최종 성공 (fileId=${fileId})`);
+      return true;
+    } else if(res) {
+      let bodyText='';
+      try{ bodyText=await res.text(); }catch(e){}
+      dlog(`gdSyncPhotoKey: key=${key} 최종 실패 status=${res.status} body=${bodyText.slice(0,300)}`);
+      return false;
     }
+    return false;
   }
   // 페이지 종료 시 대기중인 사진 업로드도 놓치지 않도록 keepalive로 즉시 전송
   // (스냅샷을 메모리에 이미 들고 있으므로 재조회 없이 바로 fetch — 더 빠르고, 삭제 영향도 안 받음)
