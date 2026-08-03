@@ -2301,7 +2301,7 @@ function buildCard(dayIndex,date,todayDayIndex,offset){
     const photoIcon=hasPhoto?`<span style="font-size:11px;margin-left:2px;opacity:0.6;">🖼️</span>`:'';
     // 기본 운동 개요(계획 텍스트) — 있으면 카드 본문에 흰색 텍스트로 표시
     const overviewNote=(multi?.base?.note||'').trim();
-    const overviewHTML=overviewNote?`<div class="activity-overview">${esc(overviewNote)}</div>`:'';
+    const overviewHTML=overviewNote?`<div class="activity-overview">${linkify(overviewNote)}</div>`:'';
     // 기본 운동 외 추가 항목 개수 — +N 배지로 표시
     const extraCount=multi?.extras?.length||0;
     const extraBadge=extraCount>0?`<span class="extra-count-badge">+${extraCount}</span>`:'';
@@ -3007,14 +3007,15 @@ function buildPane(item){
         ${raceInfo.memo?`<div style="margin-top:6px;color:var(--text);">${linkify(raceInfo.memo)}</div>`:''}
       </div>` :
       `<textarea class="note-ta wib-note-ta" id="wibNote-${type}-${selId}" data-notetype="${type}" data-noteid="${selId}"
-        placeholder="거리, 시간, 세트 수 등..." rows="2" style="min-height:56px;">${esc(selNote)}</textarea>`}
+        placeholder="거리, 시간, 세트 수 등..." rows="2" style="min-height:56px;resize:none;overflow-y:hidden;">${esc(selNote)}</textarea>
+      <div class="wib-note-links" id="wibNoteLinks-${type}-${selId}" style="display:flex;flex-direction:column;gap:4px;margin-top:6px;"></div>`}
     </div>
 
     <!-- 메모 -->
     <div class="modal-divider"></div>
     <div class="m-section-label">메모</div>
     <div class="note-preview" id="notePreview-${photoKey}" style="${getNote(dk,photoKey)?'':'display:none'}">${linkify(getNote(dk,photoKey))}</div>
-    <textarea class="note-ta" id="noteTa-${photoKey}" placeholder="메모...">${esc(getNote(dk,photoKey))}</textarea>
+    <textarea class="note-ta" id="noteTa-${photoKey}" placeholder="메모..." style="resize:none;overflow-y:hidden;">${esc(getNote(dk,photoKey))}</textarea>
     <div class="modal-actions">
       <div class="memo-del-wrap" id="memoDelWrap-${photoKey}">
         <button class="btn btn-danger" id="memoDelBtn-${photoKey}">🗑 삭제</button>
@@ -3104,8 +3105,19 @@ function bindPaneEvents(){
     };
   });
 
-  // 세부기록 textarea 자동저장
+  // 세부기록(개요) textarea 자동저장 + 내용에 맞게 자동으로 높이 늘어남 + URL 있으면 탭 가능한 링크로 표시
   document.querySelectorAll('.wib-note-ta').forEach(ta=>{
+    const linksBox=document.getElementById(`wibNoteLinks-${ta.dataset.notetype}-${ta.dataset.noteid}`);
+    const autoGrow=()=>{ ta.style.height='auto'; ta.style.height=(ta.scrollHeight)+'px'; };
+    const renderLinks=()=>{
+      if(!linksBox) return;
+      const urls=(ta.value.match(/(https?:\/\/[^\s<>"]+)/g))||[];
+      linksBox.innerHTML=urls.map(u=>
+        `<a href="${esc(u)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sky);background:rgba(56,189,248,0.1);border-radius:8px;padding:6px 10px;text-decoration:none;word-break:break-all;">🔗 ${esc(u)}</a>`
+      ).join('');
+    };
+    autoGrow(); renderLinks(); // 처음 열었을 때 이미 긴 내용/링크가 있으면 바로 반영
+    ta.addEventListener('input', ()=>{ autoGrow(); renderLinks(); });
     ta.onblur=()=>{
       const type=ta.dataset.notetype, selId=ta.dataset.noteid;
       const m=getMulti(dk,type)||{base:{},extras:[],customOpt:{}};
@@ -3313,12 +3325,15 @@ function bindPaneEvents(){
     const photoKey=ta.id.replace('noteTa-','');
     const sportType=getSportType(photoKey);
     const preview=document.getElementById(`notePreview-${photoKey}`);
+    const autoGrow=()=>{ ta.style.height='auto'; ta.style.height=(ta.scrollHeight)+'px'; };
     if(preview&&ta.value.trim()) ta.style.display='none';
-    if(preview) preview.onclick=()=>{preview.style.display='none';ta.style.display='';ta.focus();};
+    else autoGrow(); // 처음부터 텍스트 상자가 보이는 상태면 내용에 맞게 바로 높이 맞춤
+    if(preview) preview.onclick=()=>{preview.style.display='none';ta.style.display='';ta.focus();autoGrow();};
+    ta.addEventListener('input', autoGrow);
     const updatePreview=(txt)=>{
       if(!preview) return;
       if(txt.trim()){preview.innerHTML=linkify(txt);preview.style.display='';ta.style.display='none';}
-      else{preview.style.display='none';ta.style.display='';}
+      else{preview.style.display='none';ta.style.display='';autoGrow();}
     };
     ta.onblur=()=>{saveNote(dk,photoKey,ta.value);renderSlides();updateMemoDelBtn(photoKey);updatePreview(ta.value);};
     ta.onclick=e=>e.stopPropagation();
