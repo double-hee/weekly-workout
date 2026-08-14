@@ -3141,13 +3141,15 @@ function bindPaneEvents(){
     };
   });
 
-  // 대회명 링크 클릭 → 대회 정보 팝업
+  // 대회명 링크 클릭 → DB 대회는 읽기 전용 정보 팝업, 직접 추가한 대회는 수정 폼
   document.querySelectorAll('.race-plan-link').forEach(el=>{
     el.onclick=e=>{
       e.stopPropagation();
       const raceId=el.dataset.raceid;
       const r=raceLoad().find(r=>r.id===raceId);
-      if(r) openRaceForm(r, true);
+      if(!r) return;
+      if(r.fromDB) openRaceInfoFromModal(r.id);
+      else openRaceForm(r, true);
     };
   });
 
@@ -5217,8 +5219,8 @@ async function raceSyncFromAPI(showUI){
   if(raceSyncing) return;
   raceSyncing=true;
   const syncBtn=document.getElementById('raceSyncBtn');
-  const syncBtnOrigText=syncBtn?syncBtn.textContent:null;
-  if(syncBtn){ syncBtn.textContent='🔄 불러오는 중...'; syncBtn.disabled=true; }
+  const syncBtnOrigHTML=syncBtn?syncBtn.innerHTML:null;
+  if(syncBtn){ syncBtn.innerHTML='<span class="gd-spin" style="display:inline-block;">🔄</span> 불러오는 중...'; syncBtn.disabled=true; }
   try{
     const res=await fetch(RACE_API_URL);
     if(!res.ok) throw new Error('status '+res.status);
@@ -5270,7 +5272,7 @@ async function raceSyncFromAPI(showUI){
   }catch(e){
     if(showUI && typeof showToast==='function') showToast('❌ 대회 DB 동기화 실패: '+e.message);
   }
-  if(syncBtn){ syncBtn.textContent=syncBtnOrigText||'🔄 DB 새로고침'; syncBtn.disabled=false; }
+  if(syncBtn){ syncBtn.innerHTML=syncBtnOrigHTML||'🔄 DB 새로고침'; syncBtn.disabled=false; }
   raceSyncing=false;
 }
 
