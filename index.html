@@ -5452,8 +5452,8 @@ function renderRaceBody(){
               if(!names.length) return '';
               const mineRow = myEv && ev===myEv;
               return `<div style="display:flex;gap:6px;margin-top:2px;">
-                <span style="flex-shrink:0;width:40px;font-weight:800;color:${mineRow?'var(--lime)':'var(--subtext)'};">${esc(ev)}</span>
-                <span style="color:#fff;">${esc(names.join(', '))}</span>
+                <span style="flex-shrink:0;width:34px;font-weight:800;color:${mineRow?'var(--lime)':'var(--subtext)'};">${esc(ev)}</span>
+                <span style="color:#fff;word-break:keep-all;overflow-wrap:break-word;">${esc(names.join(', '))}</span>
               </div>`;
             }).join('');
           }
@@ -5488,7 +5488,7 @@ function renderRaceBody(){
                   ${r.fromDB?`<span style="font-size:10px;color:var(--muted);">🔒 DB</span>`:''}
                 </div>
                 ${r.participate==='yes' && !r.myEvent ? `<div style="font-size:10.5px;color:var(--amber);margin-top:2px;">⚠️ 등록 종목 정보 없음</div>` : ''}
-                ${(r.time||r.apiTime||r.place||r.apiPlace||r.memo)?`<div class="race-card-memo" style="color:var(--text);font-weight:500;">${esc([r.time||r.apiTime, r.place||r.apiPlace||r.memo].filter(Boolean).join(' · '))}</div>`:''}
+                ${(r.time||r.apiTime||r.place||r.apiPlace||r.memo)?`<div class="race-card-memo" style="color:var(--aqua);font-weight:700;text-shadow:0 0 8px rgba(34,211,238,0.6);">${esc([r.time||r.apiTime, r.place||r.apiPlace||r.memo].filter(Boolean).join(' · '))}</div>`:''}
                 ${participantGroupsHtml?`<div class="race-card-memo" style="margin-top:4px;">${participantGroupsHtml}</div>`
                   :(r.participants?`<div class="race-card-memo" style="color:#fff;">👥 ${esc(r.participants)}</div>`:'')}
               </div>
@@ -6086,8 +6086,8 @@ function openRaceInfoFromModal(raceId){
             const names=canonMap.get(ev)||[];
             if(!names.length) return '';
             return `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-              <div style="flex-shrink:0;min-width:44px;font-size:12px;font-weight:800;color:var(--lime);">${esc(ev)}</div>
-              <div style="font-size:13px;color:var(--text);line-height:1.5;">${esc(names.join(', '))}</div>
+              <div style="flex-shrink:0;min-width:38px;font-size:12px;font-weight:800;color:var(--lime);">${esc(ev)}</div>
+              <div style="font-size:13px;color:var(--text);line-height:1.5;word-break:keep-all;overflow-wrap:break-word;">${esc(names.join(', '))}</div>
             </div>`;
           }).join('');
           return `<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:16px;">
