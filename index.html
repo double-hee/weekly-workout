@@ -201,7 +201,7 @@
     .race-summary{display:flex;gap:10px;margin-bottom:12px;}
     .race-summary-item{font-size:11px;color:var(--subtext);}
     .race-filter-row{display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.05);border-radius:12px;padding:4px;}
-    .race-filter-btn{flex:1;padding:7px;border-radius:9px;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;background:none;color:var(--subtext);}
+    .race-filter-btn{flex:1;min-width:76px;text-align:center;padding:7px 12px;border-radius:9px;border:none;cursor:pointer;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;background:none;color:var(--subtext);white-space:nowrap;}
     .race-filter-btn.active{background:rgba(163,230,53,0.15);color:var(--lime);}
     .race-year-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:4px 2px;}
     .race-year-label{font-size:14px;font-weight:800;color:var(--lime);font-family:'Space Grotesk',sans-serif;}
@@ -2998,7 +2998,7 @@ function buildPane(item){
           <span class="m-section-label" style="margin-bottom:0;">개요</span>
           ${isLocked?`<button class="race-plan-link" data-raceid="${raceInfo.id}"
             style="background:rgba(163,230,53,0.08);border:1.5px solid rgba(163,230,53,0.3);border-radius:14px;padding:3px 10px;font-size:11px;color:var(--lime);font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">
-            🔗 대회 정보 수정
+            🔗 ${raceInfo.fromDB?'대회 정보 보기':'대회 정보 수정'}
           </button>`:''}
         </div>
         <button class="wib-done-toggle${selDone?' wib-done-on':''}" data-donetype="${type}" data-doneid="${selId}"
@@ -5197,6 +5197,18 @@ function raceCalcPace(timeStr, event){
   if(!sec || !km) return '';
   return raceFormatPace(sec/km);
 }
+// 종목 표기를 거리 기준으로 정규화 — "기타(2km)"와 "2K"는 같은 종목으로 취급되도록 통일된 라벨을 만든다
+function raceEventCanonical(ev){
+  if(!ev) return '';
+  const km=raceEventDistanceKm(ev);
+  if(km==null) return String(ev).trim();
+  const e=String(ev).trim().toUpperCase();
+  if(e==='FULL'||e.includes('풀코스')||e==='풀') return 'FULL';
+  if(e==='HALF'||e==='하프') return 'HALF';
+  // 소수점 불필요한 자리는 정수로 표시 (예: 2.0 → "2K")
+  const kmStr = (km % 1 === 0) ? String(km) : String(km);
+  return `${kmStr}K`;
+}
 // 종목 목록을 짧은 거리순으로 정렬 (거리 파악 안 되는 종목은 뒤로)
 function raceSortEvents(list){
   return [...new Set(list)].sort((a,b)=>{
@@ -5207,12 +5219,19 @@ function raceSortEvents(list){
     return da-db;
   });
 }
-// 대회 하나의 전체 종목 목록 (DB apiEvents + event/myEvent 포함, 정렬됨)
+// 대회 하나의 전체 종목 목록 (DB apiEvents + event/myEvent 포함, 거리 기준으로 정규화·중복제거·정렬됨)
 function raceAllEvents(r){
   let list=(r.apiEvents||'').split(',').map(s=>s.trim()).filter(Boolean);
-  if(r.event && !list.includes(r.event)) list.push(r.event);
-  if(r.myEvent && !list.includes(r.myEvent)) list.push(r.myEvent);
-  return raceSortEvents(list);
+  if(r.event) list.push(r.event);
+  if(r.myEvent) list.push(r.myEvent);
+  // 같은 거리를 나타내는 여러 표기(예: "2K"와 "기타(2km)")는 정규화된 라벨 하나로 합친다
+  const seen=new Map(); // canonical -> 대표 라벨
+  list.forEach(ev=>{
+    const canon=raceEventCanonical(ev);
+    if(!canon) return;
+    if(!seen.has(canon)) seen.set(canon, canon); // 대표 라벨은 정규화된 형태로 통일해서 표시
+  });
+  return raceSortEvents([...seen.values()]);
 }
 let raceSyncing=false;
 async function raceSyncFromAPI(showUI){
@@ -5287,7 +5306,7 @@ function raceFmtFull(ds){
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-let raceFilter='all';
+let raceFilter='yes';
 let raceCollapsed={};
 let raceHidePast=(localStorage.getItem('race_hide_past')??'1')==='1'; // 기본값: 지난 대회 숨김
 let raceConfirmCb=null;
@@ -5365,7 +5384,7 @@ function renderRaceBody(){
         <button class="race-year-action" id="raceSyncBtn" style="background:rgba(163,230,53,0.1);color:var(--lime);border:1px solid rgba(163,230,53,0.25);">🔄 DB 새로고침</button>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
       <div class="race-filter-row" style="margin-bottom:0;flex-shrink:0;">
         <button class="race-filter-btn${raceFilter==='all'?' active':''}" data-rf="all">전체</button>
         <button class="race-filter-btn${raceFilter==='yes'?' active':''}" data-rf="yes">⭐ 참가</button>
@@ -5417,12 +5436,27 @@ function renderRaceBody(){
       if(open){
         list.forEach(r=>{
           const t=raceGetSports(r.sport), p=raceGetPart(r.participate);
-          const norm=s=>String(s||'').trim().toUpperCase();
-          const myEv = (r.participate==='yes' && r.myEvent) ? norm(r.myEvent) : null;
-          // 나와 같은 종목으로 등록한 참가자 (나 자신은 제외 — 이미 ⭐로 표시되므로)
-          const sameEventNames = myEv && Array.isArray(r.participantsDetail)
-            ? r.participantsDetail.filter(pt=>norm(pt.event)===myEv && pt.name!==RACE_MY_NAME).map(pt=>pt.name)
-            : [];
+          const myEv = (r.participate==='yes' && r.myEvent) ? raceEventCanonical(r.myEvent) : null;
+          // 종목별 참가자 그룹 (짧은 거리순, 거리가 같으면 같은 종목으로 합침) — 대회 팝업과 동일한 방식
+          let participantGroupsHtml='';
+          if(Array.isArray(r.participantsDetail) && r.participantsDetail.length){
+            const canonMap=new Map(); // canonical 종목 -> 참가자 이름 배열
+            r.participantsDetail.forEach(pt=>{
+              const canon=pt.event?raceEventCanonical(pt.event):'미정';
+              if(!canonMap.has(canon)) canonMap.set(canon, []);
+              canonMap.get(canon).push(pt.name);
+            });
+            const evOrder=raceSortEvents([...canonMap.keys()]);
+            participantGroupsHtml = evOrder.map(ev=>{
+              const names=canonMap.get(ev)||[];
+              if(!names.length) return '';
+              const mineRow = myEv && ev===myEv;
+              return `<div style="display:flex;gap:6px;margin-top:2px;">
+                <span style="flex-shrink:0;width:40px;font-weight:800;color:${mineRow?'var(--lime)':'var(--subtext)'};">${esc(ev)}</span>
+                <span style="color:#fff;">${esc(names.join(', '))}</span>
+              </div>`;
+            }).join('');
+          }
           html+=`
             <div class="race-card" data-rc="${r.id}">
               <button data-rcdate="${r.date}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:52px;width:52px;flex-shrink:0;background:rgba(${t.rgb},0.12);border:1px solid rgba(${t.rgb},0.25);border-radius:10px;padding:8px 4px;cursor:pointer;">
@@ -5447,15 +5481,16 @@ function renderRaceBody(){
                     // 예전엔 myEvent가 비어있으면 대회의 기본 종목(event)으로 대체 표시했는데,
                     // 그게 내가 실제 등록한 종목이 아닐 수 있어서 잘못 강조되는 원인이었다.
                     return raceAllEvents(r).map(ev=>{
-                      const mine = myEv && norm(ev)===myEv;
+                      const mine = myEv && ev===myEv;
                       return `<span class="race-card-event" style="color:${mine?'#0A130A':t.color};background:${mine?'var(--lime)':`rgba(${t.rgb},0.12)`};font-weight:${mine?'900':'700'};${mine?'box-shadow:0 0 0 1px var(--lime);':''}">${mine?'⭐ ':''}${esc(ev)}</span>`;
                     }).join('');
                   })()}
                   ${r.fromDB?`<span style="font-size:10px;color:var(--muted);">🔒 DB</span>`:''}
                 </div>
                 ${r.participate==='yes' && !r.myEvent ? `<div style="font-size:10.5px;color:var(--amber);margin-top:2px;">⚠️ 등록 종목 정보 없음</div>` : ''}
-                ${(r.time||r.apiTime||r.place||r.apiPlace||r.memo)?`<div class="race-card-memo">${esc([r.time||r.apiTime, r.place||r.apiPlace||r.memo].filter(Boolean).join(' · '))}</div>`:''}
-                ${sameEventNames.length?`<div class="race-card-memo" style="color:var(--lime);">👥 ${esc(sameEventNames.join(', '))}</div>`:''}
+                ${(r.time||r.apiTime||r.place||r.apiPlace||r.memo)?`<div class="race-card-memo" style="color:var(--text);font-weight:500;">${esc([r.time||r.apiTime, r.place||r.apiPlace||r.memo].filter(Boolean).join(' · '))}</div>`:''}
+                ${participantGroupsHtml?`<div class="race-card-memo" style="margin-top:4px;">${participantGroupsHtml}</div>`
+                  :(r.participants?`<div class="race-card-memo" style="color:#fff;">👥 ${esc(r.participants)}</div>`:'')}
               </div>
               ${r.fromDB?'':`<button class="race-card-del" data-rdel="${r.id}">✕</button>`}
             </div>`;
@@ -6000,12 +6035,11 @@ function openRaceInfoFromModal(raceId){
           <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">시합 종목</div>
           <div style="display:flex;flex-wrap:wrap;gap:5px;">
             ${(()=>{
-              const norm=s=>String(s||'').trim().toUpperCase();
-              const myEv = (race.participate==='yes' && race.myEvent) ? norm(race.myEvent) : null;
+              const myEv = (race.participate==='yes' && race.myEvent) ? raceEventCanonical(race.myEvent) : null;
               const all=raceAllEvents(race);
               if(!all.length) return '<span style="font-size:14px;font-weight:700;color:var(--subtext);">-</span>';
               return all.map(ev=>{
-                const mine = myEv && norm(ev)===myEv;
+                const mine = myEv && ev===myEv;
                 return `<span style="font-size:12.5px;font-weight:700;color:${mine?'#0A130A':'var(--subtext)'};background:${mine?'var(--lime)':`rgba(${t.rgb},0.08)`};border-radius:6px;padding:2px 8px;">${mine?'⭐ ':''}${esc(ev)}</span>`;
               }).join('');
             })()}
@@ -6040,18 +6074,30 @@ function openRaceInfoFromModal(raceId){
       </div>`:''}
       ${race.participants?(()=>{
         const detail=Array.isArray(race.participantsDetail)?race.participantsDetail:null;
-        const evOptions=detail? raceSortEvents(detail.map(p=>p.event).filter(Boolean)) : [];
-        const filterHtml = (detail && evOptions.length>1) ? `
-          <select id="raceInfoParticipantFilter" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:var(--lime);padding:3px 6px;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;outline:none;">
-            <option value="all">전체 종목</option>
-            ${evOptions.map(ev=>`<option value="${esc(ev)}">${esc(ev)}</option>`).join('')}
-          </select>` : '';
+        if(detail && detail.length){
+          const canonMap=new Map();
+          detail.forEach(p=>{
+            const canon=p.event?raceEventCanonical(p.event):'미정';
+            if(!canonMap.has(canon)) canonMap.set(canon, []);
+            canonMap.get(canon).push(p.name);
+          });
+          const evOrder=raceSortEvents([...canonMap.keys()]);
+          const rows=evOrder.map(ev=>{
+            const names=canonMap.get(ev)||[];
+            if(!names.length) return '';
+            return `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+              <div style="flex-shrink:0;min-width:44px;font-size:12px;font-weight:800;color:var(--lime);">${esc(ev)}</div>
+              <div style="font-size:13px;color:var(--text);line-height:1.5;">${esc(names.join(', '))}</div>
+            </div>`;
+          }).join('');
+          return `<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:16px;">
+            <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">참가자</div>
+            <div>${rows}</div>
+          </div>`;
+        }
         return `<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <div style="font-size:10px;color:var(--subtext);font-weight:700;">참가자</div>
-            ${filterHtml}
-          </div>
-          <div id="raceInfoParticipantList" style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.participants)}</div>
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">참가자</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.participants)}</div>
         </div>`;
       })():''}
       ${race.fromDB?`<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">🔒 크루 DB에서 자동으로 불러온 대회예요 (읽기 전용)</div>`:''}
@@ -6067,19 +6113,6 @@ function openRaceInfoFromModal(raceId){
   el.style.display='flex';
   if(window.pushPopup) window.pushPopup('raceInfoOverlay', ()=>closeRaceInfoFromModal());
   el.onclick=e=>{ if(e.target===el) closeRaceInfoFromModal(); };
-
-  // 종목별 참가자 필터
-  const participantFilterSelect=document.getElementById('raceInfoParticipantFilter');
-  if(participantFilterSelect){
-    participantFilterSelect.onchange=()=>{
-      const sel=participantFilterSelect.value;
-      const detail=Array.isArray(race.participantsDetail)?race.participantsDetail:[];
-      const listEl=document.getElementById('raceInfoParticipantList');
-      if(!listEl) return;
-      const names = sel==='all' ? detail.map(p=>p.name) : detail.filter(p=>p.event===sel).map(p=>p.name);
-      listEl.textContent = names.length ? names.join(', ') : '(해당 종목 참가자 없음)';
-    };
-  }
 
   // 수정 버튼: 저장 후 카드+모달 새로고침 (DB 대회는 읽기 전용이라 버튼 자체가 없음)
   document.getElementById('raceInfoShareBtn').onclick=()=>raceShareOne(race);
