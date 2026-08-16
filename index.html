@@ -1607,6 +1607,7 @@ ${jsonStr}
   <div class="race-box">
     <div class="race-head">
       <div class="race-head-title">🏅 대회 일정</div>
+      <button id="raceSyncBtn" style="margin-left:auto;margin-right:10px;background:rgba(163,230,53,0.1);color:var(--lime);border:1px solid rgba(163,230,53,0.25);border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">🔄 DB 새로고침</button>
       <button class="race-head-btn" id="raceCloseBtn">✕</button>
     </div>
     <div class="race-body" id="raceBody"></div>
@@ -5658,16 +5659,13 @@ function renderRaceBody(){
   ).join('');
 
   let html=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-      <div class="race-summary" style="margin-bottom:0;">
-        <span class="race-summary-item">총 ${races.length}개</span>
-        <span class="race-summary-item" style="color:var(--lime)">참가 ${yesCount}개</span>
-      </div>
-      <div class="race-year-btns" style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="race-year-action" id="raceRecordsBtn" style="background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">📊 기록 보기</button>
-        <button class="race-year-action" id="raceRegisterBtn" style="background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.25);">🏁 참가 신청</button>
-        <button class="race-year-action" id="raceSyncBtn" style="background:rgba(163,230,53,0.1);color:var(--lime);border:1px solid rgba(163,230,53,0.25);">🔄 DB 새로고침</button>
-      </div>
+    <div class="race-summary" style="margin-bottom:10px;">
+      <span class="race-summary-item">총 ${races.length}개</span>
+      <span class="race-summary-item" style="color:var(--lime)">참가 ${yesCount}개</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="raceRecordsBtn" style="flex:1;padding:13px;border-radius:12px;background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">📊 기록 보기</button>
+      <button id="raceRegisterBtn" style="flex:1;padding:13px;border-radius:12px;background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.25);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">🏁 참가 신청</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
       <div class="race-filter-row" style="margin-bottom:0;flex-shrink:0;">
@@ -6426,7 +6424,7 @@ function openRaceInfoFromModal(raceId){
           <div style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.participants)}</div>
         </div>`;
       })():''}
-      ${race.fromDB?`<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">🔒 대회 정보(이름/날짜/장소 등)는 크루 DB에서 자동으로 불러와요. 참가 신청·기록은 아래에서 바로 관리할 수 있어요.</div>`:''}
+      ${race.fromDB?`<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">🔒 대회 정보(이름/날짜/장소 등)는 크루 DB에서 자동으로 불러와요.</div>`:''}
       <div style="display:flex;gap:8px;margin-top:0;">
         <button id="raceInfoShareBtn" style="flex:1;padding:14px;border-radius:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:var(--sky);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
           ↑ 공유하기
