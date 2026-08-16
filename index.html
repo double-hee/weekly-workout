@@ -44,6 +44,7 @@
   })();
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     :root{
@@ -1614,6 +1615,14 @@ ${jsonStr}
 <!-- 대회 추가/수정 폼 -->
 <div class="race-form-overlay" id="raceFormOverlay">
   <div class="race-form-sheet" id="raceFormSheet"></div>
+</div>
+<!-- 내 기록 보기 -->
+<div class="race-form-overlay" id="raceRecordsOverlay">
+  <div class="race-form-sheet" id="raceRecordsSheet"></div>
+</div>
+<!-- 참가 신청 -->
+<div class="race-form-overlay" id="raceJoinOverlay">
+  <div class="race-form-sheet" id="raceJoinSheet"></div>
 </div>
 <!-- 삭제 확인 -->
 <div class="race-confirm-overlay" id="raceConfirmOverlay">
@@ -5157,6 +5166,19 @@ function raceSave(list){ try{ localStorage.setItem(RACE_STORAGE_KEY, JSON.string
 /* ══ 대회 DB 자동 동기화 (SIO 크루 대회 관리 백엔드) ══ */
 const RACE_API_URL='https://script.google.com/macros/s/AKfycbzBVJf0N2LOS__B7oF7O9H2oNrTTrrtYaYnM0P4udjsI6mF42Eci4_bRX2fnviRAU_D/exec';
 const RACE_MY_NAME='이중희'; // 참가자 명단에서 이 이름을 찾아 참가 여부를 자동으로 반영
+// 크루 사이트(SIO_marathon.html)와 동일한 백엔드에 쓰기 요청을 보낸다 (같은 GAS_URL, 같은 action 규격)
+async function raceApiPost(action, payload){
+  try{
+    const res=await fetch(RACE_API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action, ...payload})
+    });
+    return await res.json();
+  }catch(err){
+    return {ok:false, error:'네트워크 오류가 발생했어요'};
+  }
+}
 // API의 raceDate는 UTC ISO 문자열이고 원래 값은 한국시간(KST, UTC+9) 자정 기준으로 입력된 날짜라
 // 9시간을 더해야 실제 의도된 달력 날짜가 나온다 (예: "...T15:00:00.000Z" → KST 자정 → 다음날)
 function raceApiDateToKey(iso){
@@ -5219,11 +5241,22 @@ function raceSortEvents(list){
     return da-db;
   });
 }
-// 대회 하나의 전체 종목 목록 (DB apiEvents + event/myEvent 포함, 거리 기준으로 정규화·중복제거·정렬됨)
+// 대회 하나의 종목 원본 목록 (SIO_marathon.html의 getEventOptionsForRace_와 동일한 우선순위)
+// 1) DB에 지정된 종목 목록(events) → 2) 이미 등록된 참가자들이 쓴 종목 → 3) 기본값 10K/HALF/FULL
+function raceGetEventOptions(r){
+  const fromDb=(r.apiEvents||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(fromDb.length) return raceSortEvents(fromDb);
+  const fromEntries = Array.isArray(r.participantsDetail)
+    ? [...new Set(r.participantsDetail.map(p=>p.event).filter(Boolean))]
+    : [];
+  if(fromEntries.length) return raceSortEvents(fromEntries);
+  return ['10K','HALF','FULL'];
+}
+// 대회 하나의 전체 종목 목록 (표시용 — 원본 목록 + event/myEvent 포함, 거리 기준으로 정규화·중복제거·정렬됨)
 function raceAllEvents(r){
-  let list=(r.apiEvents||'').split(',').map(s=>s.trim()).filter(Boolean);
-  if(r.event) list.push(r.event);
-  if(r.myEvent) list.push(r.myEvent);
+  let list=raceGetEventOptions(r);
+  if(r.event) list=[...list, r.event];
+  if(r.myEvent) list=[...list, r.myEvent];
   // 같은 거리를 나타내는 여러 표기(예: "2K"와 "기타(2km)")는 정규화된 라벨 하나로 합친다
   const seen=new Map(); // canonical -> 대표 라벨
   list.forEach(ev=>{
@@ -5232,6 +5265,17 @@ function raceAllEvents(r){
     if(!seen.has(canon)) seen.set(canon, canon); // 대표 라벨은 정규화된 형태로 통일해서 표시
   });
   return raceSortEvents([...seen.values()]);
+}
+// 초 → "H:MM:SS" 또는 "MM:SS" (raceTimeToSeconds의 역변환, 그래프 축 라벨용)
+function raceSecondsToTimeStr(sec){
+  if(sec==null || !isFinite(sec)) return '';
+  sec=Math.round(sec);
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+function raceFmtDateShort(ts){
+  const d=new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()}`;
 }
 let raceSyncing=false;
 async function raceSyncFromAPI(showUI){
@@ -5278,6 +5322,7 @@ async function raceSyncFromAPI(showUI){
         goal: myRecord?.goal||'',
         result: myRecord?.result||'',
         myEvent: myEntry?.event||'',
+        entryId: myEntry?.id||'',
         apiPlace: apiRace.place||'',
         apiLink: apiRace.link||'',
         apiTime: apiRace.time||'',
@@ -5325,6 +5370,244 @@ function openAddonPio(){
   if(!w){
     // 팝업 차단된 경우 새 탭으로라도 열어준다
     window.open('https://double-hee.github.io/PIO/', '_blank', 'noopener,noreferrer');
+  }
+}
+const RACE_CHART_EVENTS=['10K','HALF','FULL'];
+const RACE_CHART_COLORS={'10K':'#4ADE80','HALF':'#FBBF24','FULL':'#FB7185'};
+let raceChartSelectedEvents=new Set(RACE_CHART_EVENTS);
+let raceChartInstance=null;
+
+function renderRaceChartFilter(){
+  const box=document.getElementById('raceChartFilter');
+  if(!box) return;
+  box.innerHTML=RACE_CHART_EVENTS.map(ev=>{
+    const active=raceChartSelectedEvents.has(ev);
+    const c=RACE_CHART_COLORS[ev];
+    return `<button type="button" data-cev="${ev}" style="padding:6px 12px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;background:${active?c:'rgba(255,255,255,0.05)'};border:1px solid ${active?c:'rgba(255,255,255,0.15)'};color:${active?'#0A130A':'var(--subtext)'};">${ev}</button>`;
+  }).join('');
+  box.querySelectorAll('[data-cev]').forEach(btn=>{
+    btn.onclick=()=>{
+      const ev=btn.dataset.cev;
+      if(raceChartSelectedEvents.has(ev)) raceChartSelectedEvents.delete(ev); else raceChartSelectedEvents.add(ev);
+      renderRaceChartFilter();
+      renderRaceChart();
+    };
+  });
+}
+
+function renderRaceChart(){
+  const canvas=document.getElementById('raceChartCanvas');
+  const emptyEl=document.getElementById('raceChartEmpty');
+  if(!canvas) return;
+  const races=raceLoad().filter(r=>r.participate==='yes');
+  const datasets=[];
+  let hasAny=false;
+  RACE_CHART_EVENTS.forEach(ev=>{
+    if(!raceChartSelectedEvents.has(ev)) return;
+    const goalPts=[], resultPts=[];
+    races.filter(r=>raceEventCanonical(r.myEvent||r.event)===ev).forEach(r=>{
+      const d=new Date(r.date);
+      if(isNaN(d)) return;
+      const gSec=raceTimeToSeconds(r.goal), rSec=raceTimeToSeconds(r.result);
+      if(gSec!=null) goalPts.push({x:d.getTime(), y:gSec});
+      if(rSec!=null) resultPts.push({x:d.getTime(), y:rSec});
+    });
+    goalPts.sort((a,b)=>a.x-b.x); resultPts.sort((a,b)=>a.x-b.x);
+    const c=RACE_CHART_COLORS[ev];
+    if(goalPts.length){
+      hasAny=true;
+      datasets.push({type:'scatter', label:`${ev} 목표`, data:goalPts, backgroundColor:'#fff', borderColor:c, borderWidth:2.5, pointRadius:6, pointHoverRadius:8, showLine:false, order:2});
+    }
+    if(resultPts.length){
+      hasAny=true;
+      datasets.push({type:'line', label:`${ev} 달성`, data:resultPts, borderColor:c, backgroundColor:c, pointRadius:3, pointHoverRadius:5, borderWidth:2.5, tension:0.15, fill:false, order:1});
+    }
+  });
+  if(raceChartInstance){ raceChartInstance.destroy(); raceChartInstance=null; }
+  if(!hasAny){
+    canvas.style.display='none';
+    if(emptyEl) emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block';
+  if(emptyEl) emptyEl.style.display='none';
+  raceChartInstance=new Chart(canvas.getContext('2d'),{
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      scales:{
+        x:{type:'linear', ticks:{callback:v=>raceFmtDateShort(v), maxRotation:0, autoSkip:true, color:'#7A9E7A', font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}},
+        y:{type:'linear', ticks:{callback:v=>raceSecondsToTimeStr(v), color:'#7A9E7A', font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}}
+      },
+      plugins:{legend:{display:false}, tooltip:{enabled:true,
+        callbacks:{
+          title:items=>items.length?raceFmtDateShort(items[0].parsed.x):'',
+          label:item=>`${item.dataset.label}: ${raceSecondsToTimeStr(item.parsed.y)}`
+        }
+      }}
+    }
+  });
+}
+
+// 내 기록 보기 — 목표/달성 기록이 있는 대회를 한 곳에 모아서 보여준다
+function openRaceRecords(){
+  const sheet=document.getElementById('raceRecordsSheet');
+  const races=raceLoad()
+    .filter(r=>r.participate==='yes' && (r.goal||r.result))
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const rowsHtml = races.length ? races.map(r=>{
+    const t=raceGetSports(r.sport);
+    const ev=r.myEvent||r.event;
+    const goalPace=raceCalcPace(r.goal,ev), resultPace=raceCalcPace(r.result,ev);
+    const isPast = new Date(r.date) < new Date(new Date().setHours(0,0,0,0));
+    return `<div data-rc="${r.id}" style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="min-width:0;">
+          <div style="font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.name)}</div>
+          <div style="font-size:11.5px;color:var(--subtext);margin-top:2px;">${raceFmtFull(r.date)}${ev?` · ${esc(ev)}`:''}</div>
+        </div>
+        ${r.result?`<span style="flex-shrink:0;font-size:11px;font-weight:800;color:var(--lime);background:rgba(163,230,53,0.12);border-radius:7px;padding:3px 8px;">완주</span>`
+          :`<span style="flex-shrink:0;font-size:11px;font-weight:700;color:var(--amber);background:rgba(251,191,36,0.12);border-radius:7px;padding:3px 8px;">${isPast?'기록 미입력':'예정'}</span>`}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:10px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:4px;">목표</div>
+          <div style="font-size:15px;font-weight:800;color:var(--text);">${r.goal?esc(r.goal):'-'}</div>
+          ${goalPace?`<div style="font-size:10.5px;color:var(--lime);margin-top:3px;">⏱ ${goalPace}</div>`:''}
+        </div>
+        <div style="flex:1;background:rgba(56,189,248,0.06);border-radius:10px;padding:10px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:4px;">달성</div>
+          <div style="font-size:15px;font-weight:800;color:${r.result?'var(--sky)':'var(--muted)'};">${r.result?esc(r.result):'-'}</div>
+          ${resultPace?`<div style="font-size:10.5px;color:var(--sky);margin-top:3px;">⏱ ${resultPace}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;padding:40px 20px;color:var(--subtext);font-size:13px;line-height:1.6;">아직 목표·달성 기록이 있는 대회가 없어요.<br>DB 새로고침을 하면 크루 사이트에 등록한 기록을 가져와요.</div>`;
+
+  sheet.innerHTML=`
+    <div class="race-form-head">
+      <div class="race-form-title">📊 내 기록</div>
+      <button class="race-head-btn" id="raceRecordsClose">✕</button>
+    </div>
+    <div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:16px;">
+      <div id="raceChartFilter" style="display:flex;gap:6px;margin-bottom:10px;"></div>
+      <div style="position:relative;height:220px;">
+        <canvas id="raceChartCanvas"></canvas>
+        <div id="raceChartEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--subtext);font-size:12.5px;text-align:center;padding:0 20px;">10K/HALF/FULL 목표·기록이 아직 없어요</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">${rowsHtml}</div>
+  `;
+  document.getElementById('raceRecordsClose').onclick=()=>closeRaceRecords();
+  sheet.querySelectorAll('[data-rc]').forEach(row=>{
+    row.onclick=()=>openRaceInfoFromModal(row.dataset.rc);
+  });
+  renderRaceChartFilter();
+  renderRaceChart();
+  document.getElementById('raceRecordsOverlay').classList.add('open');
+  if(window.pushPopup) window.pushPopup('raceRecordsOverlay', ()=>closeRaceRecords());
+}
+function closeRaceRecords(){
+  document.getElementById('raceRecordsOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('raceRecordsOverlay');
+}
+
+// 참가 신청 — SIO_marathon.html의 "참가 대회 등록하기"와 동일한 필드 구성을 우리 앱 스타일로 재현
+function openRaceJoinModal(){
+  const sheet=document.getElementById('raceJoinSheet');
+  const today=new Date(); today.setHours(0,0,0,0);
+  const already=new Set(raceLoad().filter(r=>r.participate==='yes').map(r=>r.name));
+  const upcoming=raceLoad()
+    .filter(r=>new Date(r.date)>=today && !already.has(r.name))
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  sheet.innerHTML=`
+    <div class="race-form-head">
+      <div class="race-form-title">🏁 참가 대회 등록하기</div>
+      <button class="race-head-btn" id="raceJoinClose">✕</button>
+    </div>
+    ${upcoming.length?`
+      <div style="margin-bottom:14px;">
+        <label class="race-form-label">대회 선택 <span style="color:var(--muted);font-weight:400;">(예정된 대회만 표시돼요)</span></label>
+        <select id="rjRaceSelect" class="race-form-input">
+          <option value="">대회를 선택하세요</option>
+          ${upcoming.map(r=>`<option value="${r.id}">${esc(r.name)} (${raceFmtShort(r.date)})</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="race-form-label">대회일자</label>
+        <input id="rjRaceDate" class="race-form-input" readonly value="" style="color:var(--subtext);">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="race-form-label">종목</label>
+        <select id="rjEvent" class="race-form-input"><option value="">먼저 대회를 선택하세요</option></select>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label class="race-form-label">동반 참가 인원 <span style="color:var(--muted);font-weight:400;">(선택)</span></label>
+        <textarea id="rjNote" class="race-form-input" placeholder="함께 뛰는 사람이 있다면 적어주세요" style="resize:none;line-height:1.6;min-height:56px;overflow:hidden;"></textarea>
+      </div>
+      <button id="rjSubmit" style="width:100%;padding:14px;border-radius:12px;background:var(--amber);border:none;color:#241a00;font-size:14.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">신청하기</button>
+    `:`<div style="text-align:center;padding:40px 20px;color:var(--subtext);font-size:13px;line-height:1.6;">신청 가능한 예정 대회가 없어요.<br>DB 새로고침을 해보시거나, 크루 관리자에게 대회 등록을 요청해주세요.</div>`}
+  `;
+  document.getElementById('raceJoinClose').onclick=()=>closeRaceJoinModal();
+
+  if(upcoming.length){
+    const raceSelect=document.getElementById('rjRaceSelect');
+    const dateInput=document.getElementById('rjRaceDate');
+    const eventSelect=document.getElementById('rjEvent');
+    const noteEl=document.getElementById('rjNote');
+    const autoGrow=()=>{ noteEl.style.height='auto'; noteEl.style.height=Math.max(noteEl.scrollHeight,56)+'px'; };
+    noteEl.addEventListener('input', autoGrow);
+
+    raceSelect.onchange=()=>{
+      const r=upcoming.find(x=>x.id===raceSelect.value);
+      if(!r){
+        dateInput.value='';
+        eventSelect.innerHTML='<option value="">먼저 대회를 선택하세요</option>';
+        return;
+      }
+      dateInput.value=raceFmtFull(r.date);
+      const opts=raceGetEventOptions(r);
+      eventSelect.innerHTML=opts.map(ev=>`<option value="${esc(ev)}">${esc(raceEventCanonical(ev))}</option>`).join('');
+    };
+
+    document.getElementById('rjSubmit').onclick=async ()=>{
+      const r=upcoming.find(x=>x.id===raceSelect.value);
+      if(!r){ showToast('대회를 선택해주세요.'); return; }
+      const ev=eventSelect.value;
+      if(!ev){ showToast('종목을 선택해주세요.'); return; }
+      const note=noteEl.value.trim();
+      const btn=document.getElementById('rjSubmit');
+      btn.disabled=true; btn.textContent='신청 중...';
+      const res=await raceApiPost('addEntry',{name:RACE_MY_NAME, raceName:r.name, raceDate:r.date, event:ev, note});
+      if(!res.ok){
+        showToast('❌ 신청 실패: '+(res.error||'알 수 없는 오류'));
+        btn.disabled=false; btn.textContent='신청하기';
+        return;
+      }
+      showToast('✅ 참가 신청 완료!');
+      await raceSyncFromAPI(false);
+      closeRaceJoinModal();
+      if(document.getElementById('raceOverlay')?.classList.contains('open')) renderRaceBody();
+    };
+  }
+
+  document.getElementById('raceJoinOverlay').classList.add('open');
+  if(window.pushPopup) window.pushPopup('raceJoinOverlay', ()=>closeRaceJoinModal());
+}
+function closeRaceJoinModal(){
+  document.getElementById('raceJoinOverlay').classList.remove('open');
+  if(window.popPopup) window.popPopup('raceJoinOverlay');
+}
+
+// 대회 참가 신청은 크루 사이트 자체 로그인/저장 로직이 필요해서 우리 앱에서 직접 구현하기보다
+// 실제 등록 화면으로 바로 이동시켜서 그 자리에서 신청할 수 있게 한다.
+function openSioRegister(){
+  const url='https://double-hee.github.io/SIO-Marathon-Schedule/';
+  const w=window.open(url, 'sioRegister', 'width=420,height=800,noopener,noreferrer');
+  if(!w){
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
 function openAddonRace(){
@@ -5375,12 +5658,14 @@ function renderRaceBody(){
   ).join('');
 
   let html=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
       <div class="race-summary" style="margin-bottom:0;">
         <span class="race-summary-item">총 ${races.length}개</span>
         <span class="race-summary-item" style="color:var(--lime)">참가 ${yesCount}개</span>
       </div>
-      <div class="race-year-btns">
+      <div class="race-year-btns" style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="race-year-action" id="raceRecordsBtn" style="background:rgba(56,189,248,0.1);color:var(--sky);border:1px solid rgba(56,189,248,0.25);">📊 기록 보기</button>
+        <button class="race-year-action" id="raceRegisterBtn" style="background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.25);">🏁 참가 신청</button>
         <button class="race-year-action" id="raceSyncBtn" style="background:rgba(163,230,53,0.1);color:var(--lime);border:1px solid rgba(163,230,53,0.25);">🔄 DB 새로고침</button>
       </div>
     </div>
@@ -5522,6 +5807,10 @@ function renderRaceBody(){
   if(syncBtn) syncBtn.onclick=()=>{
     raceSyncFromAPI(true).then(()=>{ renderRaceBody(); });
   };
+  const recordsBtn=document.getElementById('raceRecordsBtn');
+  if(recordsBtn) recordsBtn.onclick=()=>openRaceRecords();
+  const registerBtn=document.getElementById('raceRegisterBtn');
+  if(registerBtn) registerBtn.onclick=()=>openRaceJoinModal();
   const hidePastChk=document.getElementById('raceHidePastChk');
   if(hidePastChk) hidePastChk.onchange=()=>{
     raceHidePast=hidePastChk.checked;
@@ -5968,14 +6257,30 @@ function raceShareOne(race){
   const lines = [
     `🏅 ${race.name}`,
     `📅 ${raceFmtFull(race.date)}${(race.time||race.apiTime)?` · ${race.time||race.apiTime}`:''}`,
-    `🏃 ${t.name}${race.event ? ' · ' + race.event : ''}`,
   ];
-  if(race.goal) lines.push(`🎯 목표기록: ${race.goal}`);
-  if(race.result) lines.push(`🏁 달성기록: ${race.result}`);
+  const allEvents = raceAllEvents(race);
+  if(allEvents.length) lines.push(`🏃 종목: ${allEvents.join(', ')}`);
   if(race.place||race.apiPlace) lines.push(`📍 ${race.place||race.apiPlace}`);
   if(race.link||race.apiLink) lines.push(`🔗 ${race.link||race.apiLink}`);
   if(race.memo) lines.push(`📝 ${race.memo}`);
-  if(race.participants) lines.push(`👥 ${race.participants}`);
+  // 종목별 참가자
+  const detail=Array.isArray(race.participantsDetail)?race.participantsDetail:null;
+  if(detail && detail.length){
+    const canonMap=new Map();
+    detail.forEach(p=>{
+      const canon=p.event?raceEventCanonical(p.event):'미정';
+      if(!canonMap.has(canon)) canonMap.set(canon, []);
+      canonMap.get(canon).push(p.name);
+    });
+    const evOrder=raceSortEvents([...canonMap.keys()]);
+    lines.push('👥 참가자');
+    evOrder.forEach(ev=>{
+      const names=canonMap.get(ev)||[];
+      if(names.length) lines.push(`  ${ev}: ${names.join(', ')}`);
+    });
+  } else if(race.participants){
+    lines.push(`👥 ${race.participants}`);
+  }
   const text = lines.join('\n');
   if(navigator.share){
     navigator.share({ text }).catch(()=>{});
@@ -6047,19 +6352,40 @@ function openRaceInfoFromModal(raceId){
         </div>
         <div style="background:var(--card);border-radius:12px;padding:14px;">
           <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">참가 여부</div>
-          <div style="font-size:14px;font-weight:700;color:${p.color};">${p.label}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;font-weight:700;color:${p.color};">${p.label}</span>
+            ${race.participate==='yes' && race.entryId ? `<button id="raceInfoCancelBtn" style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer;font-family:'Noto Sans KR',sans-serif;padding:0;">참가 취소</button>` : ''}
+          </div>
         </div>
-        ${race.goal?`<div style="background:var(--card);border-radius:12px;padding:14px;">
-          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">목표 기록</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(race.goal)}</div>
-          ${raceCalcPace(race.goal,race.myEvent||race.event)?`<div style="font-size:10.5px;color:var(--lime);margin-top:4px;">⏱ ${raceCalcPace(race.goal,race.myEvent||race.event)}</div>`:''}
-        </div>`:''}
-        ${race.result?`<div style="background:var(--card);border-radius:12px;padding:14px;">
-          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">달성 기록</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(race.result)}</div>
-          ${raceCalcPace(race.result,race.myEvent||race.event)?`<div style="font-size:10.5px;color:var(--sky);margin-top:4px;">⏱ ${raceCalcPace(race.result,race.myEvent||race.event)}</div>`:''}
-        </div>`:''}
       </div>
+      ${race.fromDB && race.participate!=='yes' ? (()=>{
+        const opts=raceGetEventOptions(race);
+        return `<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:8px;">🏁 참가 신청</div>
+          ${opts.length?`
+            <select id="raceInfoJoinEvent" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:9px;color:var(--text);padding:10px;font-size:13px;font-weight:600;font-family:'Noto Sans KR',sans-serif;margin-bottom:8px;outline:none;">
+              ${opts.map(ev=>`<option value="${esc(ev)}">${esc(raceEventCanonical(ev))}</option>`).join('')}
+            </select>
+            <button id="raceInfoJoinBtn" style="width:100%;padding:12px;border-radius:10px;background:var(--amber);border:none;color:#241a00;font-size:13.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">참가 신청하기</button>
+          `:`<div style="font-size:12px;color:var(--muted);">이 대회는 아직 종목 정보가 없어요.</div>`}
+        </div>`;
+      })() : ''}
+      ${race.participate==='yes' && race.entryId ? `<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:8px;">🎯 목표 · 달성 기록</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <div style="flex:1;">
+            <div style="font-size:10.5px;color:var(--subtext);margin-bottom:4px;">목표 기록</div>
+            <input id="raceInfoGoalInput" placeholder="예: 1:29:00" value="${esc(race.goal||'')}" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:9px;color:var(--text);padding:9px 10px;font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;outline:none;">
+            <div id="raceInfoGoalPace" style="font-size:10.5px;color:var(--lime);margin-top:4px;min-height:13px;">${raceCalcPace(race.goal,race.myEvent||race.event)?'⏱ '+raceCalcPace(race.goal,race.myEvent||race.event):''}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10.5px;color:var(--subtext);margin-bottom:4px;">달성 기록</div>
+            <input id="raceInfoResultInput" placeholder="예: 1:29:30" value="${esc(race.result||'')}" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:9px;color:var(--text);padding:9px 10px;font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;outline:none;">
+            <div id="raceInfoResultPace" style="font-size:10.5px;color:var(--sky);margin-top:4px;min-height:13px;">${raceCalcPace(race.result,race.myEvent||race.event)?'⏱ '+raceCalcPace(race.result,race.myEvent||race.event):''}</div>
+          </div>
+        </div>
+        <button id="raceInfoRecordSaveBtn" style="width:100%;padding:11px;border-radius:10px;background:rgba(163,230,53,0.15);border:1px solid rgba(163,230,53,0.3);color:var(--lime);font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">기록 저장</button>
+      </div>` : ''}
       ${(race.place||race.apiPlace)?`<div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;">
         <div style="font-size:10px;color:var(--subtext);font-weight:700;margin-bottom:6px;">장소</div>
         <div style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.place||race.apiPlace)}</div>
@@ -6100,7 +6426,7 @@ function openRaceInfoFromModal(raceId){
           <div style="font-size:13px;color:var(--text);line-height:1.6;">${esc(race.participants)}</div>
         </div>`;
       })():''}
-      ${race.fromDB?`<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">🔒 크루 DB에서 자동으로 불러온 대회예요 (읽기 전용)</div>`:''}
+      ${race.fromDB?`<div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px;">🔒 대회 정보(이름/날짜/장소 등)는 크루 DB에서 자동으로 불러와요. 참가 신청·기록은 아래에서 바로 관리할 수 있어요.</div>`:''}
       <div style="display:flex;gap:8px;margin-top:0;">
         <button id="raceInfoShareBtn" style="flex:1;padding:14px;border-radius:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);color:var(--sky);font-size:14px;font-weight:800;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
           ↑ 공유하기
@@ -6122,6 +6448,68 @@ function openRaceInfoFromModal(raceId){
     const r = raceLoad().find(r=>r.id===raceId);
     if(!r) return;
     openRaceForm(r, true);
+  };
+
+  // 참가 신청 (실제 크루 DB에 기록됨 — SIO_marathon.html과 동일한 API)
+  const joinBtn=document.getElementById('raceInfoJoinBtn');
+  if(joinBtn) joinBtn.onclick=async ()=>{
+    const ev=document.getElementById('raceInfoJoinEvent')?.value;
+    if(!ev){ showToast('종목을 선택해주세요.'); return; }
+    joinBtn.disabled=true; joinBtn.textContent='신청 중...';
+    const res=await raceApiPost('addEntry',{name:RACE_MY_NAME, raceName:race.name, raceDate:race.date, event:ev, note:''});
+    if(!res.ok){
+      showToast('❌ 신청 실패: '+(res.error||'알 수 없는 오류'));
+      joinBtn.disabled=false; joinBtn.textContent='참가 신청하기';
+      return;
+    }
+    showToast('✅ 참가 신청 완료!');
+    await raceSyncFromAPI(false);
+    closeRaceInfoFromModal();
+    if(document.getElementById('raceOverlay')?.classList.contains('open')) renderRaceBody();
+  };
+
+  // 목표/달성 기록 저장 + 실시간 페이스 미리보기
+  const goalInput=document.getElementById('raceInfoGoalInput');
+  const resultInput=document.getElementById('raceInfoResultInput');
+  const updateInfoPaces=()=>{
+    const ev=race.myEvent||race.event;
+    const gp=document.getElementById('raceInfoGoalPace'), rp=document.getElementById('raceInfoResultPace');
+    if(gp) gp.textContent = goalInput?.value ? (raceCalcPace(goalInput.value,ev)?'⏱ '+raceCalcPace(goalInput.value,ev):'') : '';
+    if(rp) rp.textContent = resultInput?.value ? (raceCalcPace(resultInput.value,ev)?'⏱ '+raceCalcPace(resultInput.value,ev):'') : '';
+  };
+  goalInput?.addEventListener('input', updateInfoPaces);
+  resultInput?.addEventListener('input', updateInfoPaces);
+  const recordSaveBtn=document.getElementById('raceInfoRecordSaveBtn');
+  if(recordSaveBtn) recordSaveBtn.onclick=async ()=>{
+    const goal=(goalInput?.value||'').trim(), result=(resultInput?.value||'').trim();
+    recordSaveBtn.disabled=true; recordSaveBtn.textContent='저장 중...';
+    const res=await raceApiPost('saveRecord',{entryId:race.entryId, name:RACE_MY_NAME, raceName:race.name, goal, result, memo:''});
+    if(!res.ok){
+      showToast('❌ 저장 실패: '+(res.error||'알 수 없는 오류'));
+      recordSaveBtn.disabled=false; recordSaveBtn.textContent='기록 저장';
+      return;
+    }
+    showToast('✅ 기록 저장 완료!');
+    await raceSyncFromAPI(false);
+    closeRaceInfoFromModal();
+    if(document.getElementById('raceOverlay')?.classList.contains('open')) renderRaceBody();
+  };
+
+  // 참가 취소
+  const cancelBtn=document.getElementById('raceInfoCancelBtn');
+  if(cancelBtn) cancelBtn.onclick=async ()=>{
+    if(!window.confirm(`'${race.name}' 참가를 취소할까요?`)) return;
+    cancelBtn.disabled=true; cancelBtn.textContent='취소 중...';
+    const res=await raceApiPost('deleteEntry',{entryId:race.entryId, name:RACE_MY_NAME});
+    if(!res.ok){
+      showToast('❌ 취소 실패: '+(res.error||'알 수 없는 오류'));
+      cancelBtn.disabled=false; cancelBtn.textContent='참가 취소';
+      return;
+    }
+    showToast('참가를 취소했어요.');
+    await raceSyncFromAPI(false);
+    closeRaceInfoFromModal();
+    if(document.getElementById('raceOverlay')?.classList.contains('open')) renderRaceBody();
   };
 }
 function closeRaceInfoFromModal(){
