@@ -4914,7 +4914,7 @@ function renderPaceTriangleTab(body){
   const totalTimeSec = (+t.h||0)*3600 + (+t.m||0)*60 + (+t.s||0);
 
   let resultDist=null, resultPaceMin=null, resultPaceSec=null, resultTimeStr=null;
-  if(target==='dist' && paceSecPerKm>0 && totalTimeSec>0) resultDist=(totalTimeSec/paceSecPerKm).toFixed(2);
+  if(target==='dist' && paceSecPerKm>0 && totalTimeSec>0) resultDist=(totalTimeSec/paceSecPerKm).toFixed(3);
   else if(target==='pace' && dist>0 && totalTimeSec>0){
     const p=totalTimeSec/dist; resultPaceMin=Math.floor(p/60); resultPaceSec=Math.round(p%60);
   } else if(target==='time' && dist>0 && paceSecPerKm>0) resultTimeStr=paceFmtTime(dist*paceSecPerKm);
@@ -4929,7 +4929,7 @@ function renderPaceTriangleTab(body){
     <div style="margin-bottom:14px;">
       <div class="pace-label">거리 (km) ${target==='dist'?'<span style="color:var(--sky)">· 결과</span>':''}</div>
       <input type="number" class="pace-input${target==='dist'?' result':''}" id="triDist"
-        value="${target==='dist'?(resultDist??'—'):(t.dist||'')}" step="0.01" min="0" ${target==='dist'?'readonly':''}>
+        value="${target==='dist'?(resultDist??'—'):(t.dist||'')}" step="0.001" min="0" ${target==='dist'?'readonly':''}>
     </div>
     <div style="margin-bottom:14px;">
       <div class="pace-label">페이스 (분'초"/km) ${target==='pace'?'<span style="color:var(--sky)">· 결과</span>':''}</div>
